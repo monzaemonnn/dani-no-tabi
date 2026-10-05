@@ -1,0 +1,2024 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="A dust mite drifts through a Fukuoka sharehouse, waking the fabric it brushes.">
+</head>
+<body>
+<title>ダニの旅</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500&family=Geist+Mono:wght@400;500&family=Zen+Kaku+Gothic+New:wght@500;700&display=swap">
+<style>
+/* Design read: launch screen for a quiet exploration game, grounded minimal language, native CSS over the live WebGL scene.
+   Dials: variance 5 / motion 3 / density 2. One dark theme, one accent (woken-carpet amber), one radius (4px). */
+:root{
+  --bg:#111113; --ink:#ecebe7; --ink-2:rgba(236,235,231,.66); --ink-3:rgba(236,235,231,.42); --line:rgba(236,235,231,.16);
+  --accent:#e3ad5c; --r:4px;
+  --sans:"Geist","Helvetica Neue",Arial,sans-serif; --mono:"Geist Mono","SF Mono",ui-monospace,monospace;
+  --jp:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);overflow:hidden;font-family:var(--sans);-webkit-user-select:none;user-select:none;-webkit-font-smoothing:antialiased}
+#stage{position:fixed;inset:0;touch-action:none}
+#stage canvas{display:block;width:100%;height:100%}
+/* legibility scrim for the type over the live scene (bottom-left only) */
+.scrim{position:fixed;inset:0;pointer-events:none;background:radial-gradient(70% 60% at 0% 100%,rgba(12,12,14,.72) 0%,rgba(12,12,14,.28) 55%,transparent 80%);transition:opacity 1.2s cubic-bezier(.16,1,.3,1)}
+body.playing .scrim{opacity:0}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+
+#title{position:fixed;left:max(20px,6vw);bottom:max(28px,10vh);width:min(420px,calc(100vw - 40px));display:grid;gap:22px}
+#title > *{opacity:0;transform:translateY(12px);transition:opacity .6s cubic-bezier(.16,1,.3,1),transform .6s cubic-bezier(.16,1,.3,1)}
+body.ready #title > *{opacity:1;transform:none}
+body.ready #title > *:nth-child(2){transition-delay:.08s} body.ready #title > *:nth-child(3){transition-delay:.16s}
+#title.gone > *{opacity:0;transform:translateY(8px);transition-delay:0s!important;pointer-events:none}
+h1{margin:0;display:grid;gap:10px}
+h1 .jp{font-family:var(--jp);font-weight:700;font-size:clamp(44px,6.4vw,84px);line-height:1.05;letter-spacing:-.02em}
+h1 .en{font-size:15px;font-weight:400;color:var(--ink-2);letter-spacing:0}
+.sub{margin:0;font-size:15px;line-height:1.6;color:var(--ink-2);max-width:36ch}
+.cta{display:flex;align-items:center;gap:16px}
+#begin{background:var(--ink);color:#141416;font-weight:500;font-size:14px;padding:12px 22px;border-radius:var(--r);white-space:nowrap;transition:background .2s,transform .12s}
+#begin:hover{background:#fff}
+#begin:active{transform:scale(.98)}
+#begin:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+#begin[disabled]{background:transparent;color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line);cursor:wait}
+#load{font-family:var(--mono);font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+#loadline{position:fixed;left:0;right:0;bottom:0;height:1px;background:transparent;pointer-events:none}
+#loadline i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s linear,opacity .8s}
+body.ready #loadline i{opacity:0}
+
+#keys{position:fixed;right:max(20px,4vw);bottom:max(28px,10vh);display:grid;gap:10px;justify-items:end;font-size:12px;color:var(--ink-2);opacity:0;transition:opacity .8s .3s}
+body.ready #keys{opacity:1}
+body.playing #keys{opacity:0;transition-delay:0s}
+#keys div{display:flex;align-items:center;gap:6px}
+#keys span{margin-left:6px}
+kbd{font-family:var(--mono);font-size:11px;color:var(--ink);padding:3px 7px;border-radius:var(--r);background:rgba(236,235,231,.06);box-shadow:inset 0 0 0 1px var(--line)}
+#keys .touch{display:none}
+@media (pointer:coarse){#keys .desk{display:none} #keys .touch{display:flex}}
+@media (max-width:640px){#keys{left:20px;right:auto;justify-items:start;bottom:auto;top:calc(env(safe-area-inset-top,0px) + 20px)}}
+
+#hud{position:fixed;top:calc(env(safe-area-inset-top,0px) + 18px);left:20px;right:20px;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;opacity:0;transition:opacity 1.2s}
+#hud.on{opacity:1}
+.tally{display:grid;gap:7px;font-variant-numeric:tabular-nums}
+.tally .n{font-family:var(--mono);font-size:15px;color:var(--ink)}
+.tally .n small{font-family:var(--jp);font-size:12px;color:var(--ink-2);margin-left:6px}
+.bar{width:132px;height:1px;background:var(--line);position:relative;overflow:hidden}
+.bar i{position:absolute;inset:0 auto 0 0;width:0;background:var(--accent);transition:width .8s cubic-bezier(.16,1,.3,1)}
+.tally .wp{font-family:var(--jp);font-size:12px;color:var(--ink-2)}
+.hud-btns{display:flex;gap:6px;pointer-events:auto}
+.hud-btns button{font-size:12px;padding:6px 10px;border-radius:var(--r);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line);transition:color .2s}
+.hud-btns button:hover,.hud-btns button:focus-visible{color:var(--ink);outline:none}
+#caption{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 12vh);transform:translateX(-50%);text-align:center;pointer-events:none;opacity:0;transition:opacity .9s;display:grid;gap:6px;width:min(90vw,520px)}
+#caption.on{opacity:1}
+#caption .jp{font-family:var(--jp);font-weight:500;font-size:24px;letter-spacing:.04em;color:var(--ink)}
+#caption .en{font-size:13px;color:var(--ink-2)}
+#hint{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);transform:translateX(-50%);font-size:12px;color:var(--ink-2);opacity:0;transition:opacity 1s;pointer-events:none;white-space:nowrap}
+#hint.on{opacity:.9}
+.lb{position:fixed;left:0;right:0;height:0;background:#0b0b0d;z-index:5;pointer-events:none;transition:height 1.1s cubic-bezier(.6,0,.2,1)}
+.lb.top{top:0}.lb.bot{bottom:0}
+body.cine .lb{height:11vh}
+body.cine #hud,body.cine #hint{opacity:0}
+#breeze{position:fixed;right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 28px);padding:14px 18px;border-radius:var(--r);box-shadow:inset 0 0 0 1px var(--line);background:rgba(17,17,19,.5);color:var(--ink);font-size:13px;display:none;touch-action:none}
+@media (pointer:coarse){#hud.on ~ #breeze{display:block}}
+#err{position:fixed;inset:auto 20px 20px 20px;color:#f0a39a;font-size:13px}
+@media (prefers-reduced-motion:reduce){#title > *,#hud,#caption,#keys,.scrim{transition:none!important}}
+</style>
+
+<div id="stage"></div>
+<div class="scrim" id="veil"></div>
+
+<section id="title" aria-labelledby="t">
+  <h1 id="t"><span class="jp">ダニの旅</span><span class="en">A dust mite's drift</span></h1>
+  <p class="sub">A house dust mite rides the air through a Fukuoka sharehouse, waking the fabric it brushes.</p>
+  <div class="cta"><button id="begin" disabled>Loading</button><span id="load" aria-live="polite">0%</span></div>
+</section>
+<aside id="keys" aria-label="Controls">
+  <div class="desk"><kbd>Mouse</kbd><span>steer</span></div>
+  <div class="desk"><kbd>W</kbd><kbd>S</kbd><span>pace</span></div>
+  <div class="desk"><kbd>Space</kbd><span>ride the breeze</span></div>
+  <div class="touch"><kbd>Drag</kbd><span>steer</span></div>
+  <div class="touch"><kbd>Breeze</kbd><span>hold to ride the air</span></div>
+</aside>
+<div id="loadline"><i id="loadbar"></i></div>
+
+<div id="hud">
+  <div class="tally">
+    <div class="n" id="count">0<small>/ 0 咲いた</small></div>
+    <div class="bar"><i id="prog"></i></div>
+    <div class="wp" id="wpc">道しるべ 0 / 10</div>
+    <div class="wp" id="flc">毛玉 0 / 0</div>
+  </div>
+  <div class="hud-btns">
+    <button id="mute" aria-pressed="false">Sound on</button>
+    <button id="home">Back to the lounge</button>
+  </div>
+</div>
+<div id="caption" aria-live="polite"><div class="jp" id="capjp"></div><div class="en" id="capen"></div></div>
+<div id="hint">Esc frees the cursor</div>
+<button id="breeze" aria-label="Ride the breeze">Breeze</button>
+<div id="err" hidden></div>
+<div class="lb top"></div><div class="lb bot"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+  "three-mesh-bvh": "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.8.3/build/index.module.js"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { MeshBVH } from 'three-mesh-bvh';
+
+const $ = id => document.getElementById(id);
+const MOBILE = matchMedia('(pointer: coarse)').matches;
+
+// ------------------------------------------------------------------ renderer / scene
+// The mite is ~3 mm long and the camera sits ~1.5 cm behind it, so depth precision matters: log depth buffer.
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', logarithmicDepthBuffer: true });
+const DPR_MAX = Math.min(devicePixelRatio, MOBILE ? 1.25 : 1.5);
+let dpr = DPR_MAX;
+renderer.setPixelRatio(dpr);
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = .9;
+$('stage').appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0d0f1a);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.16;
+const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.0003, 30);
+scene.add(new THREE.HemisphereLight(0xffe9cc, 0x2a1f1a, 0.36));
+const daylight = new THREE.DirectionalLight(0xbfd2ff, 0.35); daylight.position.set(6, 3, 1); scene.add(daylight);
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.32, 0.45, 0.92));
+composer.addPass(new OutputPass());
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
+});
+
+// ------------------------------------------------------------------ fabric families
+// pattern 0 = plain over-under weave, 1 = chunky doubled carpet loops, 2 = knit V-stitch. pitch = thread spacing in metres.
+const FAMILIES = [
+  { test: n => n === 'Carpet',          key: 'carpet', pattern: 1, pitch: .0013, voice: 'marimba', oct: -1 },
+  { test: n => n.startsWith('Knit'),    key: 'knit',   pattern: 2, pitch: .0034, voice: 'bell',    oct: 0 },
+  { test: n => n.startsWith('Plaid'),   key: 'plaid',  pattern: 0, pitch: .0014, voice: 'kalimba', oct: 0 },
+  { test: n => n === 'Globe_Paper',     key: 'globe',  pattern: 0, pitch: .0022, voice: 'celesta', oct: 1 },
+  { test: n => n === 'Dart_Mat',        key: 'mat',    pattern: 0, pitch: .0017, voice: 'vibes',   oct: 0 },
+  { test: n => n.startsWith('Fabric_'), key: 'fabric', pattern: 0, pitch: .0016, voice: 'glass',   oct: 0 },
+];
+// Blender suffixes clashing material names ("Dart_Mat.001"): compare on the base name
+const baseName = n => (n || '').replace(/\.\d+$/, '');
+const familyOf = name => FAMILIES.find(f => f.test(baseName(name)));
+const SKIP_OBJ = /Blind|Darts_|Fridge|Whiteboard|Water_Server|Dart_Mat_\d_Print|Tall_Appliance|Book/;
+
+const NAMES = [
+  [/^Floor_Lounge/, 'ラウンジのカーペット', 'The lounge carpet'],
+  [/^Dart_Mat/, 'ダーツマット', 'A darts mat'],
+  [/^Dining_Chair/, 'チェックの椅子', 'A plaid dining chair'],
+  [/^Bar_Stool/, 'バースツール', 'A bar stool'],
+  [/^Pouf/, 'ニットのプーフ', 'A knit pouf'],
+  [/^BeanBag/, 'ビーズクッション', 'The bean bag'],
+  [/^Globe_Pendant/, '紙のランプ', 'A paper globe lamp'],
+  [/^Table_Lamp/, 'ランプシェード', 'The lamp shade'],
+  [/^Bench_Pads/, 'ベンチのクッション', 'The bench pads'],
+  [/^Bench_North_Back/, '背もたれ', 'The long back cushion'],
+  [/^Bench_West_Seat/, '座布団', 'The floor seat'],
+  [/^Sofa/, 'ソファ', 'The sofa'],
+  [/^Floor_Cushion/, '床のクッション', 'A floor cushion'],
+  [/^Throw_Pillows/, 'クッションたち', 'The throw pillows'],
+  [/^Crash_Pad/, 'クラッシュパッド', 'The bouldering crash pad'],
+];
+const prettyName = n => { const m = NAMES.find(([re]) => re.test(n)); return m ? [m[1], m[2]] : ['布', n.replace(/_/g, ' ')]; };
+
+// ------------------------------------------------------------------ audio
+const A = { ctx: null, muted: false };
+const PENTA = [0, 2, 4, 7, 9];
+const ROOT = 293.66; // D4
+const hz = semis => ROOT * Math.pow(2, semis / 12);
+const VOICES = {
+  bell:    { ratio: 3.01, idx: 2.0, decay: 2.6, atk: .004, gain: .20, mdec: .7 },
+  marimba: { ratio: 4.0,  idx: 1.3, decay: 1.0, atk: .002, gain: .30, mdec: .12 },
+  kalimba: { ratio: 5.4,  idx: 1.0, decay: 1.4, atk: .002, gain: .24, mdec: .08 },
+  glass:   { ratio: 2.76, idx: 1.5, decay: 2.1, atk: .006, gain: .19, mdec: .5 },
+  celesta: { ratio: 7.0,  idx: 1.1, decay: 2.4, atk: .003, gain: .16, mdec: .3 },
+  vibes:   { ratio: 4.0,  idx: .8,  decay: 2.8, atk: .01,  gain: .20, mdec: 1.2 },
+};
+function initAudio() {
+  if (A.ctx) { A.ctx.resume(); return; }
+  const ctx = A.ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 3;
+  A.master = ctx.createGain(); A.master.gain.value = .85; A.master.connect(comp).connect(ctx.destination);
+  const len = ctx.sampleRate * 3.8, ir = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+  const verb = ctx.createConvolver(); verb.buffer = ir;
+  A.verb = ctx.createGain(); A.verb.gain.value = .55; A.verb.connect(verb).connect(A.master);
+  const dl = ctx.createDelay(1); dl.delayTime.value = .375; const fb = ctx.createGain(); fb.gain.value = .32;
+  const dlf = ctx.createBiquadFilter(); dlf.type = 'lowpass'; dlf.frequency.value = 2600;
+  A.delay = ctx.createGain(); A.delay.gain.value = .25;
+  A.delay.connect(dl); dl.connect(dlf).connect(fb).connect(dl); dlf.connect(A.verb); dlf.connect(A.master);
+  A.padFilter = ctx.createBiquadFilter(); A.padFilter.type = 'lowpass'; A.padFilter.frequency.value = 380; A.padFilter.Q.value = .4;
+  A.padGain = ctx.createGain(); A.padGain.gain.value = 0; A.padGain.gain.setTargetAtTime(.05, ctx.currentTime, 3);
+  A.padFilter.connect(A.padGain); A.padGain.connect(A.master); A.padGain.connect(A.verb);
+  A.pad = [];
+  for (let i = 0; i < 6; i++) {
+    const o = ctx.createOscillator(); o.type = i % 2 ? 'sawtooth' : 'triangle'; o.detune.value = (i % 2 ? 7 : -7);
+    const g = ctx.createGain(); g.gain.value = i % 2 ? .22 : .5; o.connect(g).connect(A.padFilter); o.start(); A.pad.push(o);
+  }
+  A.chordIx = 0; setChord(0);
+  initAmbience();
+  const nb = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const nd = nb.getChannelData(0);
+  let last = 0; for (let i = 0; i < nd.length; i++) { last = .97 * last + .03 * (Math.random() * 2 - 1); nd[i] = last * 6; }
+  const ns = ctx.createBufferSource(); ns.buffer = nb; ns.loop = true;
+  A.windF = ctx.createBiquadFilter(); A.windF.type = 'bandpass'; A.windF.frequency.value = 400; A.windF.Q.value = .7;
+  A.windG = ctx.createGain(); A.windG.gain.value = 0;
+  ns.connect(A.windF).connect(A.windG).connect(A.master); A.windG.connect(A.verb); ns.start();
+}
+const CHORDS = [[-12, -5, 0, 4, 7, 14], [-15, -10, -3, 2, 9, 14], [-19, -12, -5, -1, 7, 11], [-17, -10, -3, 2, 7, 12]]; // D, Bm, G, Asus
+function setChord(i) {
+  if (!A.ctx) return;
+  const ch = CHORDS[i % CHORDS.length];
+  A.pad.forEach((o, k) => o.frequency.setTargetAtTime(hz(ch[k] - 12), A.ctx.currentTime, 1.2));
+}
+function note(semis, voice = 'bell', vel = 1, pan = 0, when = 0, dest = null) {
+  if (!A.ctx || A.muted) return;
+  const ctx = A.ctx, v = VOICES[voice], t = ctx.currentTime + when, f = hz(semis);
+  const car = ctx.createOscillator(); car.frequency.value = f;
+  const mod = ctx.createOscillator(); mod.frequency.value = f * v.ratio;
+  const mg = ctx.createGain(); mg.gain.setValueAtTime(v.idx * f, t); mg.gain.exponentialRampToValueAtTime(v.idx * f * .02 + .01, t + v.mdec);
+  mod.connect(mg).connect(car.frequency);
+  const amp = ctx.createGain(); amp.gain.setValueAtTime(0, t);
+  amp.gain.linearRampToValueAtTime(v.gain * vel, t + v.atk); amp.gain.exponentialRampToValueAtTime(.0001, t + v.decay);
+  const sp = ctx.createOscillator(); sp.frequency.value = f * 2; const sg = ctx.createGain();
+  sg.gain.setValueAtTime(0, t); sg.gain.linearRampToValueAtTime(v.gain * vel * .12, t + .01); sg.gain.exponentialRampToValueAtTime(.0001, t + v.decay * .6);
+  const pn = dest || ctx.createStereoPanner(); if (!dest) pn.pan.value = Math.max(-1, Math.min(1, pan));
+  car.connect(amp); sp.connect(sg); amp.connect(pn); sg.connect(pn);
+  if (!dest) { pn.connect(A.master); pn.connect(A.verb); pn.connect(A.delay); }
+  [car, mod, sp].forEach(o => { o.start(t); o.stop(t + v.decay + .1); });
+}
+function spatialNode(x, y, z, ref = .3, wet = .5) {
+  const ctx = A.ctx, p = ctx.createPanner();
+  p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = ref; p.rolloffFactor = 1.3; p.maxDistance = 30;
+  if (p.positionX) { p.positionX.value = x; p.positionY.value = y; p.positionZ.value = z; } else p.setPosition(x, y, z);
+  p.connect(A.master);
+  const w = ctx.createGain(); w.gain.value = wet; p.connect(w).connect(A.verb);
+  return p;
+}
+function noiseBuffer(sec, color = 0) {
+  const ctx = A.ctx, b = ctx.createBuffer(1, ctx.sampleRate * sec, ctx.sampleRate), d = b.getChannelData(0); let l = 0;
+  for (let i = 0; i < d.length; i++) { const w = Math.random() * 2 - 1; l = color ? (l * .96 + w * .04) : w; d[i] = color ? l * 5 : w; }
+  return b;
+}
+function loopNoise(dest, f, q, gain, color = 0) {
+  const ctx = A.ctx, s = ctx.createBufferSource(); s.buffer = noiseBuffer(3, color); s.loop = true;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = q;
+  const g = ctx.createGain(); g.gain.value = gain; s.connect(bp).connect(g).connect(dest); s.start();
+  return { bp, g };
+}
+function blip(dest, f, dur, gain, type = 'sine', f2 = null, when = 0) {
+  const ctx = A.ctx, t = ctx.currentTime + when, o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + .004); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g).connect(dest); o.start(t); o.stop(t + dur + .05);
+}
+function click(dest, f, gain, when = 0) {
+  const ctx = A.ctx, t = ctx.currentTime + when, s = ctx.createBufferSource(); s.buffer = A.clickBuf;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = 4;
+  const g = ctx.createGain(); g.gain.value = gain; s.connect(bp).connect(g).connect(dest); s.start(t);
+}
+// The room itself: fridges humming, the clock, the AC, crickets outside, the water server, the bar, the TV.
+function initAmbience() {
+  const ctx = A.ctx; A.clickBuf = noiseBuffer(.02);
+  for (const [x, y, z] of [[-4.92, .9, .95], [-7.15, .9, 4.05]]) {
+    const p = spatialNode(x, y, z, .4, .2);
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 240; lp.connect(p);
+    const g = ctx.createGain(); g.gain.value = .045; g.connect(lp);
+    for (const [f, a] of [[50, 1], [100, .5], [150, .25], [217, .12]]) { const o = ctx.createOscillator(); o.type = f === 50 ? 'sawtooth' : 'sine'; o.frequency.value = f; const og = ctx.createGain(); og.gain.value = a; o.connect(og).connect(g); o.start(); }
+    const lfo = ctx.createOscillator(); lfo.frequency.value = .05; const lg = ctx.createGain(); lg.gain.value = .02; lfo.connect(lg).connect(g.gain); lfo.start();
+  }
+  for (const [x, y, z] of [[1.62, 2.1, -6.22], [2.6, 2.1, 1.6]]) loopNoise(spatialNode(x, y, z, .6, .3), 700, .5, .05, 1);
+  A.clockNode = spatialNode(3.32, 1.55, -7.44, .35, .4);
+  A.cricketNodes = [spatialNode(5.2, .4, -3.5, .8, .6), spatialNode(5.2, .4, 1.8, .8, .6), spatialNode(-5.8, .4, 5.6, .8, .6)];
+  A.waterNode = spatialNode(-1.57, .9, 4.2, .4, .5);
+  A.barNode = spatialNode(-.2, 1.8, 2.65, .5, .7);
+  const tv = loopNoise(spatialNode(1.73, 1.5, -7.42, .5, .4), 650, 2.2, 0, 1); A.tvGain = tv.g;
+  A.rustle = loopNoise(A.master, 900, 1.1, 0, 0);
+  const rv = ctx.createGain(); rv.gain.value = .25; A.rustle.g.connect(rv).connect(A.verb);
+  A.patter = ctx.createGain(); A.patter.gain.value = .5; A.patter.connect(A.master);
+  A.next = { tick: ctx.currentTime + .5, cricket: ctx.currentTime + 1, water: ctx.currentTime + 12, bar: ctx.currentTime + 8, tv: 0, beat: ctx.currentTime + .5, chord: ctx.currentTime + 6, step: 0, patter: 0 };
+  A.beatN = 0; A.layers = 0; A.tock = false;
+}
+const RUSTLE = { carpet: [650, .9], knit: [480, .7], plaid: [1900, 1.6], fabric: [1300, 1.2], mat: [1600, 1.4], globe: [2600, 1.8] };
+function updateAudio(dt) {
+  if (!A.ctx || !A.next) return;
+  const ctx = A.ctx, now = ctx.currentTime, N = A.next;
+  const L = ctx.listener, cp = camera.position, f = new THREE.Vector3(), u = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+  camera.getWorldDirection(f);
+  if (L.positionX) { L.positionX.value = cp.x; L.positionY.value = cp.y; L.positionZ.value = cp.z; L.forwardX.value = f.x; L.forwardY.value = f.y; L.forwardZ.value = f.z; L.upX.value = u.x; L.upY.value = u.y; L.upZ.value = u.z; }
+  else { L.setPosition(cp.x, cp.y, cp.z); L.setOrientation(f.x, f.y, f.z, u.x, u.y, u.z); }
+  // underfoot: fabric rustles in its own colour; wood gets a patter of tiny legs
+  const sp = Math.hypot(player.vel.x, player.vel.z);
+  const fam = player.fabric?.fam.key, rc = RUSTLE[fam] || [900, 1];
+  A.rustle.bp.frequency.setTargetAtTime(rc[0] * (1 + player.gust * .4), now, .05);
+  A.rustle.bp.Q.value = rc[1];
+  A.rustle.g.gain.setTargetAtTime(player.fabric ? Math.min(.22, sp * player.contact * 2.2) : 0, now, .06);
+  if (player.onHard && sp > .01 && now > N.patter) { click(A.patter, 5200 + Math.random() * 2500, .05 + Math.random() * .04); N.patter = now + .045 / Math.min(4, sp / .03 + .5); }
+  // room sounds
+  if (now > N.tick) { click(A.clockNode, A.tock ? 2300 : 3100, .9); A.tock = !A.tock; N.tick = Math.max(N.tick + 1, now); }
+  if (now > N.cricket) {
+    const node = A.cricketNodes[(Math.random() * A.cricketNodes.length) | 0], f0 = 4100 + Math.random() * 500;
+    for (let k = 0; k < 3; k++) blip(node, f0, .03, .06, 'sine', null, k * .045);
+    N.cricket = now + .35 + Math.random() * 1.4;
+  }
+  if (now > N.water) { for (let k = 0; k < 4 + (Math.random() * 4 | 0); k++) blip(A.waterNode, 260 + Math.random() * 200, .07, .12, 'sine', 700 + Math.random() * 500, k * (.09 + Math.random() * .08)); N.water = now + 22 + Math.random() * 25; }
+  if (now > N.bar) { const f1 = 2400 + Math.random() * 600; blip(A.barNode, f1, 1.4, .05); blip(A.barNode, f1 * 1.58, 1.0, .03); blip(A.barNode, f1 * 2.31, .7, .02); N.bar = now + 16 + Math.random() * 22; }
+  if (now > N.tv) { A.tvGain.gain.setTargetAtTime(Math.random() < .3 ? 0 : .02 + Math.random() * .025, now, .03); N.tv = now + .08 + Math.random() * .14; }
+  // music: the chord moves every two bars; layers join as waypoints are found
+  const BEAT = 60 / 78 / 2;
+  if (N.beat < now - .5) N.beat = now; if (N.chord < now - .5) N.chord = now + BEAT * 16;
+  if (now > N.chord - .05) {
+    A.chordIx = (A.chordIx || 0) + 1; setChord(A.chordIx);
+    if (A.layers >= 2) { const ch = CHORDS[(A.chordIx || 0) % CHORDS.length]; note(ch[0] - 12, 'marimba', .55, 0, Math.max(0, N.chord - now)); }
+    N.chord += BEAT * 16;
+  }
+  while (N.beat < now + .1) {
+    const ch = CHORDS[(A.chordIx || 0) % CHORDS.length], when = Math.max(0, N.beat - now), b = A.beatN++;
+    const density = A.layers >= 1 ? Math.min(.75, .18 + A.layers * .07 + player.gust * .3) : 0;
+    if (density && Math.random() < density) note(ch[2 + (Math.random() * 4 | 0)] + (b % 8 < 4 ? 0 : 12), 'kalimba', .32 + Math.random() * .2, Math.random() * 1.2 - .6, when);
+    if (A.layers >= 3 && b % 16 === 12 && Math.random() < .7) note(ch[4] + 24, 'celesta', .25, Math.random() - .5, when);
+    if (A.layers >= 4 && b % 8 === 0) note(ch[3 + (b / 8 | 0) % 3] + 12, 'glass', .3, 0, when);
+    if (A.layers >= 6 && b % 4 === 2 && Math.random() < .5) note(ch[1] + 12, 'vibes', .22, Math.random() - .5, when);
+    N.beat += BEAT;
+  }
+}
+function whoosh() {
+  if (!A.ctx || A.muted) return;
+  const ctx = A.ctx, t = ctx.currentTime;
+  const nb = ctx.createBuffer(1, ctx.sampleRate * .9, ctx.sampleRate), d = nb.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / d.length);
+  const s = ctx.createBufferSource(); s.buffer = nb;
+  const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.2;
+  f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(1800, t + .5);
+  const g = ctx.createGain(); g.gain.value = .16;
+  s.connect(f).connect(g); g.connect(A.master); g.connect(A.verb); s.start(t);
+}
+function flourish(octave = 0) {
+  const ch = CHORDS[(A.chordIx || 0) % CHORDS.length];
+  const tones = [ch[2], ch[3], ch[4], ch[2] + 12, ch[3] + 12, ch[4] + 12, ch[2] + 24];
+  tones.forEach((s, i) => note(s + octave * 12, i < 4 ? 'glass' : 'celesta', .8, (i / 6) * 1.2 - .6, i * .085));
+}
+
+// ------------------------------------------------------------------ shared state / uniforms
+let root, bvh, fabricBVH, triObj;
+const timeU = { value: 0 };
+const pulseU = new THREE.Vector4(0, -50, 0, -99);
+const playerU = new THREE.Vector3(0, -50, 0);
+const dentU = new THREE.Vector4(0, -50, 0, 0);
+const UPDRAFTS = [], DOWNDRAFTS = [];
+const BOUNDS = new THREE.Box3(new THREE.Vector3(-8.0, 0.0016, -7.47), new THREE.Vector3(4.42, 2.3, 4.78));
+const HOME = new THREE.Vector3(1.0, 0.012, -5.9);
+const MAP_RECT = new THREE.Vector4(-8.3, -7.7, 13.0, 12.8);       // bloom map covers the floor plan (x, z, width, depth)
+const bloomRT = new THREE.WebGLRenderTarget(2048, 2048, { type: THREE.HalfFloatType, depthBuffer: false });
+const fabric = { objects: new Map(), patches: [], hash: new Map(), circles: [] };
+
+// ------------------------------------------------------------------ load
+async function loadRoom() {
+  // real hosts serve the binary model directly; the artifact host only serves text, so fall back to the base64 copy
+  try {
+    const bin = await fetch('room.glb');
+    if (bin.ok && /model|octet|gltf/.test(bin.headers.get('content-type') || 'model')) {
+      const buf = await bin.arrayBuffer(); $('load').textContent = '99%'; $('loadbar').style.width = '99%';
+      new GLTFLoader().parse(buf, '', gltf => { try { build(gltf); } catch (e) { showError(e); } }, showError);
+      return;
+    }
+  } catch {}
+  const res = await fetch('room.glb.b64.txt');
+  if (!res.ok) throw new Error(`the model download returned ${res.status}`);
+  const total = +res.headers.get('content-length') || 9.9e6;
+  const reader = res.body.getReader(), parts = []; let got = 0;
+  for (;;) {
+    const { done, value } = await reader.read(); if (done) break;
+    parts.push(value); got += value.length;
+    const pct = Math.min(99, Math.round(got / total * 100));
+    $('load').textContent = pct + '%'; $('loadbar').style.width = pct + '%';
+  }
+  const ascii = new Uint8Array(got); let o = 0; for (const p of parts) { ascii.set(p, o); o += p.length; }
+  const s = atob(new TextDecoder().decode(ascii).replace(/\s+/g, ''));
+  const bin = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) bin[i] = s.charCodeAt(i);
+  new GLTFLoader().parse(bin.buffer, '', gltf => { try { build(gltf); } catch (e) { showError(e); } }, showError);
+}
+loadRoom().catch(showError);
+function showError(e) { console.error(e); const el = $('err'); el.hidden = false; el.textContent = 'The room failed to load: ' + (e?.message || e) + '. Reload the page to try again.'; }
+
+function objectNameOf(o) {
+  let c = o;
+  while (c.parent && c.parent !== root && c.parent.parent !== root) c = c.parent;
+  return c.name;
+}
+function worldGeometry(m) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', m.geometry.attributes.position.clone());
+  if (m.geometry.index) g.setIndex(m.geometry.index.clone());
+  g.applyMatrix4(m.matrixWorld);
+  return g.index ? g.toNonIndexed() : g;
+}
+
+function build(gltf) {
+  root = gltf.scene;
+  scene.add(root);
+  root.updateMatrixWorld(true);
+  const lights = []; root.traverse(o => { if (o.isLight) lights.push(o); });
+  for (const l of lights) {
+    const p = new THREE.Vector3(); l.getWorldPosition(p);
+    if (l.isPointLight && !/Dart_Glow/.test(l.name)) {
+      const pl = new THREE.PointLight(l.color, /Globe|Table_Lamp/.test(l.name) ? .9 : .6, 4.5, 2);
+      pl.position.copy(p); scene.add(pl);
+      if (/Globe|Cage|Table_Lamp|Pendant/.test(l.name)) UPDRAFTS.push(p.clone());
+    }
+    l.parent.remove(l);
+  }
+  root.traverse(o => { if (/^Dart_Mat_\d_Print/.test(o.name)) o.visible = false; });
+  root.traverse(o => { if (/^Ceiling_AC/.test(o.name) && o.isMesh) DOWNDRAFTS.push(new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3())); });
+  // collision: whole room; touch detection: fabric only (with triangle -> object lookup)
+  const geos = [], fgeos = [], fobj = [];
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    const obj = objectNameOf(o);
+    if (/^Sky|Exterior|Dart_Mat_\d_Print/.test(obj)) return;
+    const g = worldGeometry(o); geos.push(g);
+    const fam = familyOf(o.material?.name);
+    if (fam && !SKIP_OBJ.test(obj)) { fgeos.push(g.clone()); fobj.push([obj, fam, g.attributes.position.count / 3, o]); }
+  });
+  bvh = new MeshBVH(mergeGeometries(geos, false));
+  buildFabric(fgeos, fobj);
+  root.traverse(o => {
+    if (!o.isMesh) return; const n = baseName(o.material?.name);
+    if (n === 'Parquet') makeWood(o.material, 0);
+    else if (n === 'Floor_Planks') makeWood(o.material, 1);
+    else if (/^(Wood_Dark|Wood_Mid|Wood_Light|Butcher_Block)$/.test(n)) makeWood(o.material, 2);
+  });
+  dartMatTexture();
+  clearTrail();
+  scatterDebris();
+  buildWaypoints();
+  buildFlowers();
+  buildEnv();
+  buildPlayer();
+  buildDust(); buildLint(); buildStreaks();
+  $('begin').disabled = false; $('begin').textContent = 'Begin';
+  $('load').textContent = ''; $('loadbar').style.width = '100%';
+  setupTitleShot();
+  requestAnimationFrame(() => document.body.classList.add('ready'));
+  renderer.setAnimationLoop(frame);
+}
+
+// ------------------------------------------------------------------ woven fabric shader
+const WEAVE_HEAD = /* glsl */`
+  uniform float uTime; uniform sampler2D uBloomMap; uniform vec4 uMapRect;
+  uniform vec4 uDent; uniform vec4 uPulse; uniform vec3 uPlayer; uniform float uPattern; uniform float uPitch;
+  uniform sampler2D uTrail; uniform vec4 uTrailRect;
+  varying vec3 vWPos; varying vec3 vWNorm;
+  float wHash(float n){ return fract(sin(n * 91.345) * 47453.5453); }
+  // returns (height 0..1, thread id, along-thread coord, warp?)
+  vec4 weaveAt(vec2 p){
+    if (uPattern > 1.5) {                       // knit: interlocking V loops
+      vec2 c = floor(p); vec2 f = fract(p) - .5;
+      float d1 = f.x + .21 + f.y * .42, d2 = f.x - .21 - f.y * .42, r = .25;
+      float h1 = sqrt(max(0., r * r - d1 * d1)) / r, h2 = sqrt(max(0., r * r - d2 * d2)) / r;
+      float arch = .72 + .28 * cos(f.y * 3.14159);
+      float right = step(h1, h2);
+      return vec4(max(h1, h2) * arch, c.x * 2. + right + c.y * 57.31, f.y * 2. + c.y, right);
+    }
+    vec2 q = p; float rw = .43;
+    if (uPattern > .5) { q = p * .5; rw = .47; }  // carpet: chunky doubled yarn
+    vec2 c = floor(q); vec2 f = fract(q) - .5;
+    float s = mod(c.x + c.y, 2.) < 1. ? 1. : -1.;
+    float hw = sqrt(max(0., rw * rw - f.x * f.x)) / rw;
+    float hf = sqrt(max(0., rw * rw - f.y * f.y)) / rw;
+    float zw = hw > 0. ? .42 + hw * .36 + s * cos(f.y * 3.14159) * .22 : 0.;
+    float zf = hf > 0. ? .42 + hf * .36 - s * cos(f.x * 3.14159) * .22 : 0.;
+    float isW = step(zf, zw);
+    return vec4(max(zw, zf), isW > .5 ? c.x * 13.71 : c.y * 7.31 + 500., isW > .5 ? q.y : q.x, isW);
+  }
+`;
+const WEAVE_MAIN = /* glsl */`
+  vec3 weaveN = normalize(vWNorm); vec3 weaveGlow = vec3(0.);
+  {
+    vec3 Nw = normalize(vWNorm);
+    vec3 an = abs(Nw); vec3 T0, B0;
+    if (an.y >= an.x && an.y >= an.z) { T0 = vec3(1., 0., 0.); B0 = vec3(0., 0., 1.); }
+    else if (an.x >= an.z) { T0 = vec3(0., 0., 1.); B0 = vec3(0., 1., 0.); }
+    else { T0 = vec3(1., 0., 0.); B0 = vec3(0., 1., 0.); }
+    vec2 p = vec2(dot(vWPos, T0), dot(vWPos, B0)) / uPitch;
+    float detail = 1. - smoothstep(.3, .85, length(fwidth(p)));   // fade the weave out where threads go sub-pixel
+    // --- the mite's wading path: pile pressed into a trench, threads shoved aside and dragged along, slowly recovering
+    vec2 tuv = (vWPos.xz - uTrailRect.xy) / uTrailRect.z + .5;
+    float inT = step(.002, tuv.x) * step(tuv.x, .998) * step(.002, tuv.y) * step(tuv.y, .998);
+    vec4 tr = texture2D(uTrail, tuv);
+    float onLevel = inT * (1. - smoothstep(.003, .012, abs(vWPos.y - tr.a))) * smoothstep(.3, .7, Nw.y);
+    float press = clamp(tr.r, 0., 1.) * onLevel;
+    float tx = uTrailRect.w * 2.;
+    vec2 grad = vec2(texture2D(uTrail, tuv + vec2(tx, 0.)).r - texture2D(uTrail, tuv - vec2(tx, 0.)).r,
+                     texture2D(uTrail, tuv + vec2(0., tx)).r - texture2D(uTrail, tuv - vec2(0., tx)).r) * onLevel;
+    p += vec2(grad.x * T0.x + grad.y * T0.z, grad.x * B0.x + grad.y * B0.z) * 2.6;
+    p -= vec2(tr.g * T0.x + tr.b * T0.z, tr.g * B0.x + tr.b * B0.z) * onLevel * 1.0;
+    // --- cloth physics: the weave dents and spreads under the mite, ripples from gusts, shivers in its wake
+    vec3 dd = vWPos - uDent.xyz; float dentR = .006 + uPitch * 2.;
+    float g = exp(-dot(dd, dd) / (dentR * dentR));
+    vec2 rd = vec2(dot(dd, T0), dot(dd, B0)); float rl = length(rd) + 1e-6;
+    p -= rd / rl * g * uDent.w * .6;
+    float pa = uTime - uPulse.w; vec3 pd = vWPos - uPulse.xyz; float pdl = length(pd) + 1e-6;
+    float ring = exp(-pow((pdl - pa * .22) * 90., 2.)) * exp(-pa * 1.1) * step(0., pa);
+    float ring2 = exp(-pow((pdl - pa * .22 + .012) * 90., 2.)) * exp(-pa * 1.1) * step(0., pa) * -.6;
+    p += vec2(dot(pd, T0), dot(pd, B0)) / pdl * (ring + ring2) * .8;
+    // --- bloom state painted into a floor-plan map: r = woken, g = time the wave front passed
+    vec4 bm = texture2D(uBloomMap, (vWPos.xz - uMapRect.xy) / uMapRect.zw);
+    float woken = bm.r, since = uTime - bm.g;
+    float fresh = bm.g > 0. ? exp(-since * 1.1) : 0.;
+    float lift = bm.g > 0. ? exp(-since * 2.4) * sin(since * 14.) * .3 : 0.;
+    // --- parallax: march the view ray into the weave so threads stand proud of the surface
+    vec3 V = cameraPosition - vWPos; float camD = length(V); V /= camD;
+    vec3 Vt = vec3(dot(V, T0), dot(V, B0), dot(V, Nw));
+    vec4 w = weaveAt(p);
+    if (camD < .5 && detail > .01) {
+      vec2 stepUV = -Vt.xy / max(abs(Vt.z), .22) * .6 / 10.;
+      float layer = 1.;
+      for (int i = 0; i < 10; i++) { if (w.x >= layer) break; layer -= .1; p += stepUV; w = weaveAt(p); }
+    }
+    float e = .035;
+    float hx = weaveAt(p + vec2(e, 0.)).x - weaveAt(p - vec2(e, 0.)).x;
+    float hy = weaveAt(p + vec2(0., e)).x - weaveAt(p - vec2(0., e)).x;
+    float edge = length(grad);
+    weaveN = normalize(Nw - (T0 * hx + B0 * hy) / (2. * e) * .32 * (1. - .5 * press) - (dd - Nw * dot(dd, Nw)) / dentR * g * uDent.w * .7
+                       + vec3(grad.x, 0., grad.y) * 3.5);
+    float hcol = clamp(w.x * (1. - .55 * press) + edge * 1.4 + lift * woken, 0., 1.3);
+    float tid = wHash(w.y);
+    float across = w.w > .5 ? p.x : p.y;
+    float ply = .5 + .5 * sin((w.z * 3.2 + across * 1.6) * 6.2831);
+    vec3 baseC = diffuseColor.rgb;
+    float lum = dot(baseC, vec3(.3, .59, .11));
+    vec3 dormC = baseC * (.86 + .28 * tid);
+    vec3 vivid = clamp(mix(vec3(lum), baseC, 1.6) * 1.15 + .015, 0., .9);
+    vivid = mix(vivid, vivid.gbr, .14 * tid);
+    vec3 col = mix(dormC, vivid, woken);
+    col *= .74 + .26 * ply;
+    col = col * (1. - .32 * press) + vec3(.05) * press * ply;   // crushed pile: darker, with a little sheen
+    col *= mix(.16, 1., smoothstep(0., .8, hcol));
+    vec3 flatC = mix(dormC, vivid, woken) * .92;
+    diffuseColor.rgb = mix(flatC, col, detail);
+    weaveN = normalize(mix(Nw, weaveN, detail));
+    weaveGlow = vivid * (fresh * .22 + woken * .01) * mix(.3, smoothstep(.6, 1., hcol), detail) * (1. - .6 * smoothstep(.5, .9, Nw.y));   // floors glow least
+  }
+`;
+const TRAIL_RES = 512, TRAIL_SIZE = .5;
+const trailRect = new THREE.Vector4(1.0, -5.9, TRAIL_SIZE, 1 / TRAIL_RES);
+const trailRT = [0, 1].map(() => new THREE.WebGLRenderTarget(TRAIL_RES, TRAIL_RES, { type: THREE.HalfFloatType, depthBuffer: false }));
+const FAB_UNIFORMS = {
+  uTrail: { value: trailRT[0].texture }, uTrailRect: { value: trailRect },
+  uTime: timeU, uBloomMap: { value: bloomRT.texture }, uMapRect: { value: MAP_RECT },
+  uDent: { value: dentU }, uPulse: { value: pulseU }, uPlayer: { value: playerU },
+};
+function makeWoven(mat, fam) {
+  if (mat.userData.woven) return;
+  mat.userData.woven = true;
+  mat.roughness = .85; mat.metalness = 0;
+  mat.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, FAB_UNIFORMS, { uPattern: { value: fam.pattern }, uPitch: { value: fam.pitch } });
+    sh.vertexShader = 'varying vec3 vWPos; varying vec3 vWNorm;\n' + sh.vertexShader.replace('#include <begin_vertex>',
+      '#include <begin_vertex>\n vWPos = (modelMatrix * vec4(transformed, 1.)).xyz; vWNorm = normalize(mat3(modelMatrix) * objectNormal);');
+    sh.fragmentShader = WEAVE_HEAD + sh.fragmentShader
+      .replace('#include <map_fragment>', '#include <map_fragment>\n' + WEAVE_MAIN)
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n normal = normalize((viewMatrix * vec4(weaveN, 0.)).xyz);')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance += weaveGlow;');
+  };
+  mat.customProgramCacheKey = () => 'woven-' + fam.key;
+  mat.needsUpdate = true;
+}
+
+// ------------------------------------------------------------------ wooden flooring at mite scale
+// Herringbone parquet (dining hall, corridor) and straight boards (kitchen): grain fibres, rings, pores,
+// varnish, seams cut as grooves, and the odd speck of dust. Fades back to the texture at a distance.
+const WOOD_HEAD = /* glsl */`
+  uniform float uWood; varying vec3 vWPos; varying vec3 vWNorm;
+  float wh21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float wn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+    return mix(mix(wh21(i), wh21(i + vec2(1., 0.)), f.x), mix(wh21(i + vec2(0., 1.)), wh21(i + vec2(1., 1.)), f.x), f.y); }
+  // (seam distance, along, across, board id) in metres
+  vec4 plank(vec2 xz){
+    if (uWood < .5) {
+      float W = .075; vec2 u = xz / W; vec2 c = floor(u); vec2 f = u - c;
+      float d = c.x - c.y; float m = mod(d, 8.); float band = floor(d / 8.);
+      bool horiz = m < 3.5;
+      float along = horiz ? m + f.x : (7. - m) + f.y;
+      float across = horiz ? f.y : f.x;
+      float id = horiz ? band * 977. + c.y : band * 977. + c.x + 50000.;
+      return vec4(min(min(across, 1. - across), min(along, 4. - along)) * W, along * W, across * W, id);
+    }
+    if (uWood < 1.5) {
+      float Wd = .12, L = .72; float row = floor(xz.y / Wd); float fy = fract(xz.y / Wd);
+      float ax = xz.x + wh21(vec2(row, 3.7)) * L; float seg = floor(ax / L); float fx = fract(ax / L);
+      return vec4(min(min(fy, 1. - fy) * Wd, min(fx, 1. - fx) * L), fx * L, fy * Wd, row * 131. + seg);
+    }
+    float row = floor(xz.y / .05);                 // furniture: long glued boards, no open seams
+    return vec4(1., xz.x, fract(xz.y / .05) * .05, row * 17.);
+  }
+  float woodH(vec2 xz){ return uWood > 1.5 ? 1. : smoothstep(0., .0008, plank(xz).x - .0002); }
+`;
+const WOOD_MAIN = /* glsl */`
+  vec3 woodN = normalize(vWNorm); float woodRough = .45; float woodDetail = 0.;
+  {
+    vec3 Nw = normalize(vWNorm); vec3 an = abs(Nw);
+    vec2 xz; vec3 Ta, Ba;
+    if (uWood < 1.5 || (an.y >= an.x && an.y >= an.z)) { xz = vWPos.xz; Ta = vec3(1., 0., 0.); Ba = vec3(0., 0., 1.); }
+    else if (an.x >= an.z) { xz = vec2(vWPos.y, vWPos.z); Ta = vec3(0., 1., 0.); Ba = vec3(0., 0., 1.); }
+    else { xz = vec2(vWPos.y, vWPos.x); Ta = vec3(0., 1., 0.); Ba = vec3(1., 0., 0.); }
+    float faceOK = uWood < 1.5 ? step(.5, Nw.y) : 1.;
+    woodDetail = (1. - smoothstep(.0005, .002, length(fwidth(xz)))) * faceOK;
+    if (woodDetail > .001) {
+      vec4 pl = plank(xz);
+      float r1 = wh21(vec2(pl.w, 1.3)), r2 = wh21(vec2(pl.w, 7.1));
+      float fib = wn(vec2(pl.y * 40. + r1 * 50., pl.z * 2600.));
+      float rings = sin((pl.z * 380. + wn(vec2(pl.y * 5., pl.z * 30. + r2 * 9.)) * 7.) * 3.14159);
+      float pores = smoothstep(.87, .94, wn(vec2(pl.y * 1100. + r2 * 30., pl.z * 5200.)));
+      vec3 base = diffuseColor.rgb;
+      float lum = dot(base, vec3(.3, .59, .11));
+      vec3 tone = max(mix(vec3(lum), base, 1.3), 0.) * (.84 + .3 * r1);
+      vec3 col = tone * (.8 + .22 * fib + .07 * rings) * (1. - .3 * pores);
+      float h = woodH(xz);
+      col *= mix(.18, 1., h);
+      if (uWood < 1.5) { float sp = wh21(floor(xz / .0012)); col = mix(col, vec3(.74, .7, .64), step(.997, sp) * .8); }
+      diffuseColor.rgb = mix(diffuseColor.rgb, col, woodDetail);
+      float e = .0002;
+      float hx = woodH(xz + vec2(e, 0.)) - woodH(xz - vec2(e, 0.));
+      float hz = woodH(xz + vec2(0., e)) - woodH(xz - vec2(0., e));
+      vec3 gN = -(Ta * hx + Ba * hz) / (2. * e) * .0005;
+      vec3 grainN = (Ta * (fib - .5) + Ba * rings * .25) * .05;
+      woodN = normalize(Nw + (gN + grainN) * woodDetail);
+      woodRough = mix(.62, .85, pores * .6 + (1. - h) * .5);
+    }
+  }
+`;
+function makeWood(mat, pattern) {
+  if (mat.userData.wood) return;
+  mat.userData.wood = true;
+  mat.envMapIntensity = pattern < 2 ? .05 : .12;     // at mite height every view is grazing: env reflections turned the wood silver
+  mat.onBeforeCompile = sh => {
+    sh.uniforms.uWood = { value: pattern };
+    sh.vertexShader = 'varying vec3 vWPos; varying vec3 vWNorm;\n' + sh.vertexShader.replace('#include <begin_vertex>',
+      '#include <begin_vertex>\n vWPos = (modelMatrix * vec4(transformed, 1.)).xyz; vWNorm = normalize(mat3(modelMatrix) * objectNormal);');
+    sh.fragmentShader = WOOD_HEAD + sh.fragmentShader
+      .replace('#include <map_fragment>', '#include <map_fragment>\n' + WOOD_MAIN)
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(roughnessFactor, woodRough, woodDetail);')
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n normal = normalize((viewMatrix * vec4(woodN, 0.)).xyz);');
+  };
+  mat.customProgramCacheKey = () => 'wood-' + pattern;
+  mat.needsUpdate = true;
+}
+
+// the darts mat: navy pile with red/white borders, DARTSLIVE2 and the throw line woven in
+function dartMatTexture() {
+  const W = 256, H = 1024, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.fillStyle = '#2a4aa8'; g.fillRect(0, 0, W, H);
+  const band = (a, b, col) => { g.fillStyle = col; g.fillRect(a * W, 0, (b - a) * W, H); };
+  band(.02, .05, '#f2f2f2'); band(.06, .12, '#e8303a'); band(.88, .94, '#e8303a'); band(.95, .98, '#f2f2f2');
+  g.fillStyle = '#f2f2f2'; g.fillRect(.08 * W, .905 * H, .84 * W, .02 * H);          // throw line
+  g.save(); g.translate(W / 2, H * .47); g.rotate(-Math.PI / 2);
+  g.font = 'bold 74px "Arial Black", Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#f2f2f2'; g.fillText('DARTSLIVE2', 0, 0); g.restore();
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.flipY = false; tex.anisotropy = 8;
+  root.traverse(o => { if (o.isMesh && baseName(o.material?.name) === 'Dart_Mat') { o.material.map = tex; o.material.color.set(0xffffff); o.material.needsUpdate = true; } });
+}
+
+// ------------------------------------------------------------------ wading trail (a small map that follows the mite)
+// r = how pressed the pile is, g/b = how far threads were dragged along the travel direction, a = height of the path
+const trailScene = new THREE.Scene(), trailCam = new THREE.Camera();
+let trailIx = 0;
+const trailMat = new THREE.ShaderMaterial({
+  uniforms: { uPrev: { value: null }, uOld: { value: new THREE.Vector2() }, uNew: { value: new THREE.Vector2() }, uSize: { value: TRAIL_SIZE },
+    uDecay: { value: .99 }, uMite: { value: new THREE.Vector3() }, uVel: { value: new THREE.Vector2() }, uStamp: { value: 0 }, uRad: { value: .0034 } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }',
+  fragmentShader: `uniform sampler2D uPrev; uniform vec2 uOld; uniform vec2 uNew; uniform float uSize; uniform float uDecay;
+    uniform vec3 uMite; uniform vec2 uVel; uniform float uStamp; uniform float uRad; varying vec2 vUv;
+    void main(){
+      vec2 w = uNew + (vUv - .5) * uSize;
+      vec2 puv = (w - uOld) / uSize + .5;
+      vec4 prev = (puv.x > 0. && puv.x < 1. && puv.y > 0. && puv.y < 1.) ? texture2D(uPrev, puv) : vec4(0., 0., 0., -10.);
+      prev.rgb *= uDecay;
+      vec2 dw = w - uMite.xz;
+      float s = uStamp * exp(-dot(dw, dw) / (uRad * uRad));
+      vec4 o = prev;
+      if (s > prev.r) { o.r = s; o.a = uMite.y; }
+      o.gb = clamp(prev.gb + uVel * s * .06, -1., 1.);
+      gl_FragColor = o;
+    }`,
+  depthTest: false, depthWrite: false,
+});
+const trailQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), trailMat); trailQuad.frustumCulled = false; trailScene.add(trailQuad);
+function clearTrail() {
+  const cc = renderer.getClearColor(new THREE.Color()), ca = renderer.getClearAlpha();
+  renderer.setClearColor(0x000000, 0);
+  for (const rt of trailRT) { renderer.setRenderTarget(rt); renderer.clear(); }
+  renderer.setRenderTarget(null); renderer.setClearColor(cc, ca);
+}
+function updateTrail(dt, contact) {
+  const U = trailMat.uniforms;
+  U.uOld.value.set(trailRect.x, trailRect.y);
+  if (Math.hypot(player.pos.x - trailRect.x, player.pos.z - trailRect.y) > .12) trailRect.set(player.pos.x, player.pos.z, TRAIL_SIZE, 1 / TRAIL_RES);
+  U.uNew.value.set(trailRect.x, trailRect.y);
+  U.uDecay.value = Math.exp(-dt / 3.5);
+  U.uMite.value.copy(player.pos);
+  const sp = Math.hypot(player.vel.x, player.vel.z);
+  U.uVel.value.set(player.vel.x, player.vel.z).multiplyScalar(sp > 1e-4 ? Math.min(1, sp / .08) / sp : 0);
+  U.uStamp.value = contact;
+  U.uRad.value = .0032 + .0025 * player.gust;
+  U.uPrev.value = trailRT[trailIx].texture;
+  renderer.setRenderTarget(trailRT[1 - trailIx]); renderer.render(trailScene, trailCam); renderer.setRenderTarget(null);
+  trailIx = 1 - trailIx;
+  FAB_UNIFORMS.uTrail.value = trailRT[trailIx].texture;
+}
+
+// ------------------------------------------------------------------ scattered debris: crumbs and stray hairs (scale landmarks)
+function rng32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function surfaceBelow(x, z, from = 2.2) {
+  ray.origin.set(x, from, z); ray.direction.set(0, -1, 0);
+  const h = bvh.raycastFirst(ray, THREE.DoubleSide, 0, from + .1);
+  return h && h.face.normal.y > .6 ? h.point.clone() : null;
+}
+function scatterDebris() {
+  const R = rng32(11), crumbs = [], hairs = [];
+  const regions = [[-2.3, 4.3, -2.4, 4.4, 160], [-.9, 3.3, -7.0, -2.7, 90], [-7.3, -2.6, .6, 4.7, 110], [-2.4, -1.7, -4.1, -2.8, 15]];
+  const crumbCols = [[.62, .42, .22], [.85, .78, .62], [.55, .52, .5], [.92, .9, .86], [.42, .3, .2]];
+  for (const [x0, x1, z0, z1, n] of regions) for (let i = 0; i < n; i++) {
+    const p = surfaceBelow(x0 + (x1 - x0) * R(), z0 + (z1 - z0) * R()); if (!p || p.y > 1.0) continue;
+    if (R() < .75) {
+      const g = new THREE.IcosahedronGeometry(.0006 + R() * .0016, 0);
+      const pos = g.attributes.position;
+      for (let k = 0; k < pos.count; k++) pos.setXYZ(k, pos.getX(k) * (.7 + R() * .6), pos.getY(k) * (.5 + R() * .4), pos.getZ(k) * (.7 + R() * .6));
+      g.rotateY(R() * 6.28); g.translate(p.x, p.y + .0004, p.z);
+      const c = crumbCols[(R() * crumbCols.length) | 0], col = new Float32Array(pos.count * 3);
+      for (let k = 0; k < pos.count; k++) col.set([c[0] * (.85 + R() * .3), c[1] * (.85 + R() * .3), c[2] * (.85 + R() * .3)], k * 3);
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.deleteAttribute('uv');
+      crumbs.push(g.toNonIndexed());
+    } else {
+      const pts = [], a0 = R() * 6.28, L = .03 + R() * .07; let a = a0, q = p.clone();
+      for (let k = 0; k < 7; k++) { pts.push(q.clone().setY(p.y + .00008)); a += (R() - .5) * .9; q.x += Math.cos(a) * L / 6; q.z += Math.sin(a) * L / 6; }
+      const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 48, .00007, 5, false);
+      g.deleteAttribute('uv'); hairs.push(g);
+    }
+  }
+  // dust bunnies: soft tangles of fibre gathered against skirting boards and under the benches
+  const bunnies = [], spots = [[4.40, -1.6], [4.40, .9], [4.41, 3.3], [-.6, 4.50], [.3, 4.50], [-2.40, -1.9], [-1.12, -6.4], [4.38, -6.2], [-7.55, 4.6], [-7.95, 3.0], [-2.1, -4.15], [3.9, -2.65], [-1.1, -3.0]];
+  const bunnyCols = [[.62, .6, .57], [.7, .66, .6], [.52, .5, .5]];
+  for (const [bx, bz] of spots) {
+    const s = surfaceBelow(bx, bz); if (!s || s.y > .06) continue;
+    const size = .008 + R() * .014, cc = bunnyCols[(R() * 3) | 0];
+    for (let k = 0; k < 22; k++) {
+      const pts = []; let q = new THREE.Vector3((R() - .5) * size, R() * size * .7, (R() - .5) * size);
+      for (let j = 0; j < 8; j++) { pts.push(q.clone().add(s)); q.add(new THREE.Vector3((R() - .5) * size * .5, (R() - .5) * size * .3, (R() - .5) * size * .5)); q.y = Math.max(.0002, Math.min(size * .8, q.y)); }
+      const tg = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, .00008 + R() * .00006, 4, false); tg.deleteAttribute('uv');
+      const col = new Float32Array(tg.attributes.position.count * 3); const sh = .85 + R() * .3;
+      for (let j = 0; j < tg.attributes.position.count; j++) col.set([cc[0] * sh, cc[1] * sh, cc[2] * sh], j * 3);
+      tg.setAttribute('color', new THREE.BufferAttribute(col, 3)); bunnies.push(tg);
+    }
+  }
+  if (bunnies.length) scene.add(new THREE.Mesh(mergeGeometries(bunnies), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .9 })));
+  const cm = new THREE.Mesh(mergeGeometries(crumbs.map(g => { g.deleteAttribute('normal'); g.computeVertexNormals(); return g; })), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .8, flatShading: true }));
+  const hm = new THREE.Mesh(mergeGeometries(hairs), new THREE.MeshStandardMaterial({ color: 0x1a1410, roughness: .35, metalness: .1 }));
+  scene.add(cm, hm);
+}
+
+// ------------------------------------------------------------------ waypoints: lost tiny things, one after another
+const WAYPOINTS = [
+  { jp: 'スパンコール', en: 'A sequin', p: [0.42, -5.45], make: 'sequin' },
+  { jp: '一円玉', en: 'A one-yen coin', p: [1.35, -4.25], make: 'coin' },
+  { jp: '桜の花びら', en: 'A sakura petal', p: [3.0, -7.15], make: 'petal' },
+  { jp: '米粒', en: 'A grain of rice', p: [1.6, -1.95], make: 'rice' },
+  { jp: 'みかんの種', en: 'A mikan seed', p: [0.9, -0.32], make: 'seed' },
+  { jp: '王冠', en: 'A bottle cap', p: [-0.5, 2.75], make: 'cap' },
+  { jp: 'ダーツの羽根', en: 'A torn dart flight', p: [2.27, 3.0], make: 'flight' },
+  { jp: 'ボタン', en: 'A shirt button', p: [-4.3, 3.75], make: 'button' },
+  { jp: '砂糖の粒', en: 'A sugar crystal', p: [-6.1, 2.2], make: 'sugar' },
+  { jp: 'ビーズ', en: 'A glass bead', p: [-2.05, -3.8], make: 'bead' },
+];
+const WP_MOTIF = [[0, 7], [4, 9], [2, 7], [7, 12], [9, 14], [4, 11], [2, 9], [0, 4], [7, 14], [12, 19]];
+let wpIx = 0, wpLight, wpTimer = 0;
+function wpObject(kind) {
+  const g = new THREE.Group(); let m;
+  const M = (o) => new THREE.MeshPhysicalMaterial(o);
+  switch (kind) {
+    case 'sequin': m = new THREE.Mesh(new THREE.CylinderGeometry(.004, .004, .0003, 6), M({ color: 0xd8c8ff, metalness: .9, roughness: .15, iridescence: 1, iridescenceIOR: 1.6, emissive: 0x6a5a90, emissiveIntensity: .6 })); break;
+    case 'coin': m = new THREE.Mesh(new THREE.CylinderGeometry(.01, .01, .0015, 48), M({ color: 0xd9dde0, metalness: 1, roughness: .35, emissive: 0x404448, emissiveIntensity: .5 }));
+      g.add(new THREE.Mesh(new THREE.TorusGeometry(.0092, .0004, 6, 48).rotateX(Math.PI / 2).translate(0, .00075, 0), M({ color: 0xc9cdd0, metalness: 1, roughness: .3 }))); break;
+    case 'petal': m = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 10).scale(.006, .0004, .0085), M({ color: 0xffc2d4, roughness: .6, sheen: 1, sheenColor: 0xffffff, emissive: 0x552030, emissiveIntensity: .2 })); break;
+    case 'rice': m = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 12).scale(.0016, .0014, .0034), M({ color: 0xf6f3ea, roughness: .3, emissive: 0x302a20, emissiveIntensity: .3 })); break;
+    case 'seed': m = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 12).scale(.0028, .0018, .0048), M({ color: 0xe9dcb8, roughness: .5 })); break;
+    case 'cap': m = new THREE.Mesh(new THREE.CylinderGeometry(.0135, .0145, .006, 21), M({ color: 0xb8252a, metalness: .8, roughness: .3 })); break;
+    case 'flight': m = new THREE.Mesh(new THREE.BoxGeometry(.012, .0002, .016).rotateY(.4), M({ color: 0x1f5fd0, roughness: .4, side: THREE.DoubleSide, clearcoat: 1 })); break;
+    case 'button': m = new THREE.Mesh(new THREE.CylinderGeometry(.0055, .0055, .0012, 32), M({ color: 0xf2efe8, roughness: .25, clearcoat: 1 }));
+      for (let k = 0; k < 4; k++) g.add(new THREE.Mesh(new THREE.CylinderGeometry(.0006, .0006, .0013, 10).translate(Math.cos(k * 1.57 + .78) * .0015, 0, Math.sin(k * 1.57 + .78) * .0015), M({ color: 0x5a554e }))); break;
+    case 'sugar': m = new THREE.Mesh(new THREE.BoxGeometry(.003, .003, .003).rotateY(.6).rotateX(.3), M({ color: 0xffffff, roughness: .08, emissive: 0xffffff, emissiveIntensity: .25, transparent: true, opacity: .9 })); break;
+    default: m = new THREE.Mesh(new THREE.SphereGeometry(.0038, 24, 16), M({ color: 0x3fb7a8, roughness: .05, clearcoat: 1, emissive: 0x0d3a35, emissiveIntensity: .5 }));
+  }
+  g.add(m);
+  return g;
+}
+function buildWaypoints() {
+  const beamGeo = new THREE.CylinderGeometry(.003, .012, .3, 20, 1, true).translate(0, .15, 0);
+  WAYPOINTS.forEach((w, i) => {
+    const s = surfaceBelow(w.p[0], w.p[1]) || new THREE.Vector3(w.p[0], 0, w.p[1]);
+    const obj = wpObject(w.make); obj.position.copy(s).y += .0012; obj.rotation.y = i * 1.3; scene.add(obj);
+    const beam = new THREE.Mesh(beamGeo, new THREE.ShaderMaterial({
+      uniforms: { uTime: timeU, uOn: { value: 0 }, uCol: { value: new THREE.Color(1, .82, .55) } },
+      vertexShader: '#include <common>\n#include <logdepthbuf_pars_vertex>\nvarying float vY; void main(){ vY = uv.y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);\n#include <logdepthbuf_vertex>\n}',
+      fragmentShader: '#include <logdepthbuf_pars_fragment>\nuniform float uTime; uniform float uOn; uniform vec3 uCol; varying float vY; void main(){\n#include <logdepthbuf_fragment>\nfloat a = pow(1. - vY, 2.) * uOn * (.6 + .4 * sin(uTime * 2.2)); gl_FragColor = vec4(uCol * a * 1.6, a); }',
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false,
+    }));
+    beam.position.copy(s); beam.frustumCulled = false; scene.add(beam);
+    Object.assign(w, { pos: s.clone().setY(s.y + .002), obj, beam, panner: null });
+  });
+  wpLight = new THREE.PointLight(0xffd9a0, .004, .25, 2); scene.add(wpLight);
+  refreshWaypoints();
+}
+function refreshWaypoints() {
+  WAYPOINTS.forEach((w, i) => { w.beam.material.uniforms.uOn.value = i === wpIx ? 1 : i === wpIx + 1 ? .22 : 0; });
+  const cur = WAYPOINTS[wpIx];
+  if (cur) wpLight.position.copy(cur.pos).y += .035; else wpLight.intensity = 0;
+  $('wpc').textContent = `道しるべ ${wpIx} / ${WAYPOINTS.length}`;
+}
+function updateWaypoints(dt, t) {
+  const cur = WAYPOINTS[wpIx]; if (!cur) return;
+  cur.obj.rotation.y += dt * .6;
+  wpTimer -= dt;
+  if (wpTimer <= 0 && A.ctx) {             // the waypoint calls out from where it lies in the room
+    wpTimer = 3.4;
+    if (!cur.panner) cur.panner = spatialNode(cur.pos.x, cur.pos.y + .02, cur.pos.z, .35);
+    const [a, b] = WP_MOTIF[wpIx % WP_MOTIF.length];
+    note(a + 12, 'celesta', .55, 0, 0, cur.panner); note(b + 12, 'celesta', .45, 0, .22, cur.panner);
+  }
+  if (player.pos.distanceTo(cur.pos) < .016) collectWaypoint(cur, t);
+}
+function collectWaypoint(w, t) {
+  w.beam.material.uniforms.uOn.value = 0;
+  for (let k = 0; k < 40; k++) spark(w.pos, new THREE.Vector3((Math.random() - .5) * .04, .01 + Math.random() * .04, (Math.random() - .5) * .04), new THREE.Color(1, .85, .55).multiplyScalar(2), 1.5 + Math.random());
+  pulseU.set(w.pos.x, w.pos.y, w.pos.z, t);
+  wpIx++;
+  A.layers = wpIx;
+  flourish(1);
+  $('capjp').textContent = w.jp; $('capen').textContent = `${w.en} · ${wpIx} of ${WAYPOINTS.length}`; $('caption').classList.add('on'); captionTimer = 3.6;
+  refreshWaypoints();
+}
+
+// ------------------------------------------------------------------ 毛玉 (fabric pills): the flowers of this world
+// Little meadows of fuzz balls sit on the fabrics. Brush one and it bursts open into a blossom of fibres,
+// releasing fluff into your trail. Open a whole meadow and the camera pulls away for a moment while it all wakes.
+const FL = { list: [], clusters: [], NR: 16, NT: 26, NA: 7, rad: null, tang: null, tip: null, core: null, ao: null, open: 0, complete: 0, lastT: 0 };
+const _q2 = new THREE.Quaternion(), _m2 = new THREE.Matrix4(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _v4 = new THREE.Vector3(), _v5 = new THREE.Vector3(),
+  _yAxis = new THREE.Vector3(0, 1, 0), _one = new THREE.Vector3(1, 1, 1), _hitC = { point: new THREE.Vector3(), distance: 0 };
+function avgMapColor(mat) {
+  const c = new THREE.Color(1, 1, 1), img = mat?.map?.image;
+  if (img) try {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 8; const g = cv.getContext('2d', { willReadFrequently: true });
+    g.drawImage(img, 0, 0, 8, 8); const px = g.getImageData(0, 0, 8, 8).data; let r = 0, gg = 0, b = 0;
+    for (let i = 0; i < px.length; i += 4) { r += px[i]; gg += px[i + 1]; b += px[i + 2]; }
+    c.setRGB(r / 64 / 255, gg / 64 / 255, b / 64 / 255, THREE.SRGBColorSpace);
+  } catch {}
+  return c.multiply(mat?.color || new THREE.Color(1, 1, 1));
+}
+function fabricRayDown(x, y, z) {
+  ray.origin.set(x, y, z); ray.direction.set(0, -1, 0);
+  const h = fabricBVH.raycastFirst(ray, THREE.DoubleSide, 0, .4);
+  if (!h || h.face.normal.y < .9) return null;      // flat tops only, not bevelled edges
+  // reject spots tucked under furniture: nothing solid may sit within 6 cm above the pill
+  ray.origin.copy(h.point).y += .0015; ray.direction.set(0, 1, 0);
+  const above = bvh.raycastFirst(ray, THREE.DoubleSide, 0, 3);
+  if (above && (above.distance < .06 || above.face.normal.y > .2)) return null;   // covered, or inside a cushion
+  // open sky: nothing within 30 cm straight above, and most angled sight lines clear (no creases, nothing overhead)
+  const n = h.face.normal.clone().normalize();
+  const o = h.point.clone().addScaledVector(n, .004);
+  ray.origin.copy(o); ray.direction.set(0, 1, 0);
+  if (bvh.raycastFirst(ray, THREE.DoubleSide, 0, .3)) return null;
+  let open = 0;
+  for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283; ray.origin.copy(o); ray.direction.set(Math.cos(a) * .87, .5, Math.sin(a) * .87); if (!bvh.raycastFirst(ray, THREE.DoubleSide, 0, .05)) open++; }
+  if (open < 6) return null;
+  // and no crease the mite can't fit into (against a wall, a back cushion, a pillow)
+  for (const lift of [.003, .006]) {
+    const q = h.point.clone().addScaledVector(n, lift);
+    if (bvh.closestPointToPoint(q, _hitC, 0, lift - .0006) && _hitC.distance < lift - .0006) return null;
+  }
+  return { p: h.point.clone(), n, O: triObj[Math.floor(fabricBVH.geometry.index.getX(h.faceIndex * 3) / 3)] };
+}
+function buildFlowers() {
+  const R = rng32(23);
+  const plan = [[/^Floor_Lounge/, 4], [/^Dart_Mat/, 2], [/^Floor_Cushion/, 2], [/^Bench_Pads/, 2], [/^Pouf/, 2], [/^BeanBag/, 1],
+    [/^Dining_Chair/, 2], [/^Sofa/, 1], [/^Bar_Stool/, 1], [/^Bench_West_Seat/, 1], [/^Crash_Pad/, 1]];
+  for (const [re, count] of plan) {
+    const objs = [...fabric.objects.values()].filter(O => re.test(O.name));
+    if (!objs.length) continue;
+    for (let c = 0; c < count; c++) {
+      const O = objs[(R() * objs.length) | 0];
+      for (let tries = 0; tries < 16; tries++) {
+        const P0 = O.patches[(R() * O.patches.length) | 0];
+        const s = fabricRayDown(P0.center.x, P0.center.y + .15, P0.center.z);
+        if (!s || s.O !== O) continue;
+        if (FL.clusters.some(k => k.center.distanceTo(s.p) < .25)) continue;
+        const cl = { center: s.p.clone(), O, flowers: [], done: 0, complete: false };
+        const n = 6 + ((R() * 3) | 0);
+        if (!O.base) O.base = avgMapColor(O.mat);
+        for (let k = 0; k < n * 5 && cl.flowers.length < n; k++) {
+          const a = R() * 6.283, r = .012 + R() * .05;
+          const h = fabricRayDown(s.p.x + Math.cos(a) * r, s.p.y + .08, s.p.z + Math.sin(a) * r);
+          if (!h || h.O !== O || cl.flowers.some(f => f.pos.distanceTo(h.p) < .012)) continue;
+          const T = new THREE.Vector3().crossVectors(h.n, Math.abs(h.n.x) < .9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 0, 1)).normalize();
+          const fl = { pos: h.p, n: h.n, T, B: new THREE.Vector3().crossVectors(h.n, T), size: .007 + R() * .005, ball: .0012 + R() * .0006,
+            base: O.base.clone().offsetHSL((R() - .5) * .03, 0, (R() - .5) * .06), col: O.col.clone().offsetHSL((R() - .5) * .08, .03, 0),
+            state: 0, t0: 0, cl, i: -1, seed: R() * 100, tq: [] };
+          for (let j = 0; j < FL.NT; j++) fl.tq.push([new THREE.Quaternion().setFromEuler(new THREE.Euler(R() * 6.3, R() * 6.3, R() * 6.3)), new THREE.Vector3(R() - .5, R() - .5, R() - .5).normalize(), .8 + R() * .5]);
+          cl.flowers.push(fl);
+        }
+        if (cl.flowers.length >= 4) { FL.clusters.push(cl); for (const fl of cl.flowers) { fl.i = FL.list.length; FL.list.push(fl); } }   // a rejected meadow takes its pills with it
+        break;
+      }
+    }
+  }
+  const N = FL.list.length;
+  // unit-length fibre with a gentle bow (bow in local +z), and a half-loop for the tangled ball
+  const arcGeo = new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, .5, .2), new THREE.Vector3(0, 1, 0)), 8, .011, 4, false);
+  const loopPts = []; for (let k = 0; k <= 10; k++) { const a = Math.PI * k / 10; loopPts.push(new THREE.Vector3(Math.cos(a) * .5, Math.sin(a) * .5, Math.sin(a * 2) * .08)); }
+  const loopGeo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(loopPts), 12, .026, 4, false);
+  const yarn = new THREE.MeshStandardMaterial({ roughness: .9, color: 0xffffff, envMapIntensity: .3 });
+  FL.rad = new THREE.InstancedMesh(arcGeo, yarn, N * (FL.NR + FL.NA));
+  FL.tang = new THREE.InstancedMesh(loopGeo, yarn, N * FL.NT);
+  FL.tip = new THREE.InstancedMesh(new THREE.SphereGeometry(.00042, 8, 6), new THREE.MeshBasicMaterial({ toneMapped: false }), N * FL.NR);
+  FL.core = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ roughness: .95, color: 0xffffff, envMapIntensity: .2 }), N);
+  const ac = document.createElement('canvas'); ac.width = ac.height = 64; const ag = ac.getContext('2d');
+  const gr = ag.createRadialGradient(32, 32, 4, 32, 32, 32); gr.addColorStop(0, 'rgba(0,0,0,.42)'); gr.addColorStop(.55, 'rgba(0,0,0,.18)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  ag.fillStyle = gr; ag.fillRect(0, 0, 64, 64);
+  FL.ao = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(ac), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }), N);
+  for (const m of [FL.rad, FL.tang, FL.tip, FL.core, FL.ao]) { m.frustumCulled = false; scene.add(m); }
+  const tmpC = new THREE.Color();
+  for (const fl of FL.list) {
+    FL.core.setColorAt(fl.i, tmpC.copy(fl.base).multiplyScalar(.62));
+    for (let j = 0; j < FL.NR + FL.NA; j++) FL.rad.setColorAt(fl.i * (FL.NR + FL.NA) + j, tmpC.copy(fl.base).multiplyScalar(.85 + .3 * ((j * 37 % 11) / 11)));
+    for (let j = 0; j < FL.NT; j++) FL.tang.setColorAt(fl.i * FL.NT + j, tmpC.copy(fl.base).multiplyScalar(.8 + .3 * ((j * 53 % 7) / 7)));
+    for (let j = 0; j < FL.NR; j++) FL.tip.setColorAt(fl.i * FL.NR + j, tmpC.copy(fl.base).multiplyScalar(.9));
+    _q2.setFromUnitVectors(new THREE.Vector3(0, 0, 1), fl.n);
+    FL.ao.setMatrixAt(fl.i, _m2.compose(_v2.copy(fl.pos).addScaledVector(fl.n, .00008), _q2, new THREE.Vector3(fl.size * 1.5, fl.size * 1.5, 1)));
+    poseFlower(fl, 0);
+  }
+  for (const m of [FL.rad, FL.tang, FL.tip, FL.core, FL.ao]) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; }
+  $('flc').textContent = `毛玉 0 / ${N}`;
+}
+// orient a unit fibre: y along dir, its bow towards `hint`, scaled to length L
+function fibreAt(origin, dir, hint, L) {
+  _v4.copy(hint).addScaledVector(dir, -hint.dot(dir));
+  if (_v4.lengthSq() < 1e-8) _v4.set(dir.y, dir.z, dir.x);
+  _v4.normalize(); _v5.crossVectors(dir, _v4);
+  return _m2.makeBasis(_v5, dir, _v4).scale(_v3.set(L, L, L)).setPosition(origin);
+}
+function poseFlower(fl, t) {
+  const NR = FL.NR, NA = FL.NA, NT = FL.NT;
+  let o = 0;
+  if (fl.state) { const e = t - fl.t0; o = 1 - Math.exp(-5 * e) * Math.cos(11 * e); }
+  const oc = Math.min(o, 1);
+  const near = Math.max(0, 1 - fl.pos.distanceTo(player.pos) / .02);
+  const ball = fl.ball * (1 + .25 * oc);
+  const c = _v2.copy(fl.pos).addScaledVector(fl.n, fl.ball * .7);       // sits slightly sunk into the pile
+  // the felted core and the tangle of looped fibres that makes the pill
+  FL.core.setMatrixAt(fl.i, new THREE.Matrix4().compose(c, _q2.identity(), _v3.setScalar(fl.ball * .68 * (1 - .2 * oc))));
+  for (let j = 0; j < NT; j++) {
+    const [q, off, sc] = fl.tq[j];
+    const breathe = 1 + .05 * Math.sin(t * 2.6 + j + fl.seed) + near * .12 * Math.sin(t * 24 + j);
+    const p = c.clone().addScaledVector(off, ball * .32);
+    FL.tang.setMatrixAt(fl.i * NT + j, new THREE.Matrix4().compose(p, q, _v3.setScalar(ball * 2 * sc * breathe)));
+  }
+  // radial fibres: tucked into the ball when closed, fanned out into a blossom when open
+  for (let j = 0; j < NR; j++) {
+    const phi = j * 2.39996 + fl.seed, ring = (j % 3) / 3;
+    const th = THREE.MathUtils.lerp(.35 + ring * .7, .55 + ring * .7, oc) + Math.sin(t * 2.3 + fl.seed + j) * .04 * (.3 + o) + near * Math.sin(t * 30 + j) * .14;
+    const L = THREE.MathUtils.lerp(ball * 1.15, fl.size * (.75 + .25 * Math.sin(j * 7.1 + fl.seed)), Math.min(1.12, o));
+    const dirv = new THREE.Vector3().copy(fl.n).multiplyScalar(Math.cos(th)).addScaledVector(fl.T, Math.cos(phi) * Math.sin(th)).addScaledVector(fl.B, Math.sin(phi) * Math.sin(th)).normalize();
+    const hint = new THREE.Vector3().copy(fl.T).multiplyScalar(Math.cos(phi + 1.7)).addScaledVector(fl.B, Math.sin(phi + 1.7));
+    FL.rad.setMatrixAt(fl.i * (NR + NA) + j, fibreAt(c, dirv, hint, L));
+    const tipScale = oc > .05 ? .45 + .5 * oc : .001;
+    FL.tip.setMatrixAt(fl.i * NR + j, new THREE.Matrix4().compose(c.clone().addScaledVector(dirv, L), _q2.identity(), _v3.setScalar(tipScale)));
+  }
+  // root fibres running from the pill's underside down into the weave, so it grows out of the cloth
+  for (let j = 0; j < NA; j++) {
+    const phi = j / NA * 6.283 + fl.seed * .7;
+    const out = new THREE.Vector3().copy(fl.T).multiplyScalar(Math.cos(phi)).addScaledVector(fl.B, Math.sin(phi));
+    const start = c.clone().addScaledVector(fl.n, -fl.ball * .45).addScaledVector(out, fl.ball * .5);
+    const dirv = out.clone().addScaledVector(fl.n, -.28).normalize();
+    FL.rad.setMatrixAt(fl.i * (NR + NA) + NR + j, fibreAt(start, dirv, fl.n, fl.ball * (2.2 + .6 * Math.sin(j * 3.3 + fl.seed))));
+  }
+}
+function updateFlowers(t) {
+  if (!FL.rad) return;
+  const dt = Math.min(.05, Math.max(0, t - FL.lastT)); FL.lastT = t;
+  let dirty = false, best = null, bd = .05;
+  for (const fl of FL.list) {
+    const dCam = fl.pos.distanceTo(camera.position);
+    if (dCam > 1.2 && !(fl.state && t - fl.t0 < 3)) continue;
+    poseFlower(fl, t); dirty = true;
+    if (!playing || fl.state || cine) continue;
+    const dp = fl.pos.distanceTo(player.pos);
+    if (dp < .011 + player.gust * .008) openFlower(fl, t);
+    else if (dp < bd) { bd = dp; best = fl; }
+  }
+  // a gentle pull towards a nearby pill, so brushing past one is forgiving
+  if (best && playing && !cine) player.vel.addScaledVector(_v2.subVectors(best.pos, player.pos).normalize(), dt * .45 * (1 - bd / .05));
+  for (const cl of FL.clusters) if (cl.cineAt && t >= cl.cineAt && !cine) { cl.cineAt = 0; startCinematic(cl); }
+  if (dirty) for (const m of [FL.rad, FL.tang, FL.tip, FL.core]) m.instanceMatrix.needsUpdate = true;
+}
+function openFlower(fl, t) {
+  fl.state = 1; fl.t0 = t; FL.open++;
+  const tmpC = new THREE.Color();
+  for (let j = 0; j < FL.NR; j++) {
+    FL.rad.setColorAt(fl.i * (FL.NR + FL.NA) + j, tmpC.copy(fl.base).lerp(fl.col, .75));
+    { tmpC.copy(fl.col); const mx = Math.max(tmpC.r, tmpC.g, tmpC.b, .001); FL.tip.setColorAt(fl.i * FL.NR + j, tmpC.multiplyScalar(1.9 / mx)); }   // glowing, in the fabric's hue
+  }
+  FL.rad.instanceColor.needsUpdate = true; FL.tip.instanceColor.needsUpdate = true;
+  $('flc').textContent = `毛玉 ${FL.open} / ${FL.list.length}`;
+  // a bright, rising pair of notes, then seeds join the trail
+  if (t - player.lastBloom > 2.2) player.combo = 0; player.lastBloom = t;
+  const k = player.combo++;
+  note(PENTA[k % 5] + 12 + 12 * (Math.floor(k / 5) % 2), 'celesta', .8, 0); note(PENTA[(k + 2) % 5] + 24, 'bell', .35, 0, .09);
+  for (let s = 0; s < 3 && moteCount < MAX_MOTES; s++) { motes.setColorAt(moteCount, fl.col.clone().multiplyScalar(1.8)); moteCount++; motes.count = moteCount; motes.instanceColor.needsUpdate = true; }
+  for (let s = 0; s < 16; s++) envSpawn(fl.pos.clone().addScaledVector(fl.n, .003), new THREE.Vector3((Math.random() - .5) * .03, .015 + Math.random() * .03, (Math.random() - .5) * .03), fl.col.clone().multiplyScalar(1.7), 2 + Math.random() * 2, 1.2);
+  for (let s = 0; s < 8; s++) lint(fl.pos.clone().addScaledVector(fl.n, .002), new THREE.Vector3((Math.random() - .5) * .02, .006 + Math.random() * .01, (Math.random() - .5) * .02), fl.base);
+  pulseU.set(fl.pos.x, fl.pos.y, fl.pos.z, t);
+  const cl = fl.cl; cl.done++;
+  if (!cl.complete && cl.done >= cl.flowers.length) { cl.complete = true; FL.complete++; cl.cineAt = t + .45; }
+}
+
+// ------------------------------------------------------------------ cinematic: the camera leaves the mite and circles the waking meadow
+let cine = null;
+const cineSpot = new THREE.SpotLight(0xfff0d8, 0, 1.2, .62, .85, 2);
+scene.add(cineSpot, cineSpot.target);
+// the room's palette for cutscene colour: lamp gold, cushion rose, mat blue, knit mint, lilac
+const CINE_PALETTE = [[1, .74, .34], [1, .45, .58], [.42, .66, 1], [.5, .95, .72], [.78, .62, 1]].map(c => new THREE.Color(...c));
+function cineColour(cl) { return Math.random() < .35 ? cl.O.col.clone() : CINE_PALETTE[(Math.random() * CINE_PALETTE.length) | 0].clone(); }
+function startCinematic(cl) {
+  const t = timeU.value;
+  cine = { cl, t0: t, dur: 7.5, a0: Math.atan2(camera.position.z - cl.center.z, camera.position.x - cl.center.x), skip: false, spiralAcc: 0, rings: 0 };
+  document.body.classList.add('cine');
+  const nrm = cl.flowers[0].n;
+  cineSpot.position.copy(cl.center).addScaledVector(nrm, .34).add(new THREE.Vector3(.06, 0, .04));
+  cineSpot.target.position.copy(cl.center); cineSpot.target.updateMatrixWorld();
+  cineSpot.color.copy(cl.O.col).lerp(new THREE.Color(1, .95, .85), .6);
+  // a wide wave of colour floods out through the fabric from the meadow
+  const c = { p: cl.center.clone(), r: .9, t0: t + .6, dur: 3.2, quiet: true };
+  fabric.circles.push(c); paintCircle(c);
+  for (const P of patchesNear(cl.center, .9, [])) if (!P.state && !P.due) P.due = t + .6 + P.center.distanceTo(cl.center) / .9 * 3;
+  for (let s = 0; s < 220; s++) {
+    const a = Math.random() * 6.283, r = Math.random() * .2;
+    envSpawn(cl.center.clone().add(new THREE.Vector3(Math.cos(a) * r, .002, Math.sin(a) * r)),
+      new THREE.Vector3((Math.random() - .5) * .02, .015 + Math.random() * .045, (Math.random() - .5) * .02), cineColour(cl).multiplyScalar(1.1 + Math.random() * .6), 4 + Math.random() * 4, 1.5 + Math.random() * 2.5);
+  }
+  // music: a swell and a turn to a new chord
+  if (A.ctx) {
+    A.chordIx = (A.chordIx || 0) + 1; setChord(A.chordIx);
+    const ch = CHORDS[(A.chordIx || 0) % CHORDS.length];
+    [ch[2], ch[3], ch[4], ch[2] + 12, ch[4] + 12].forEach((s, i) => note(s, 'glass', .55, (i / 4) * 1.2 - .6, .8 + i * .22));
+    [ch[2] + 24, ch[3] + 24, ch[4] + 24].forEach((s, i) => note(s, 'celesta', .4, 0, 2.4 + i * .3));
+    if (A.padFilter) A.padFilter.frequency.setTargetAtTime(3200, A.ctx.currentTime, .8);
+  }
+  const [jp, en] = prettyName(cl.O.name);
+  $('capjp').textContent = '毛玉が咲いた'; $('capen').textContent = `${en} · meadow ${FL.complete} of ${FL.clusters.length}`;
+  $('caption').classList.add('on'); captionTimer = 5;
+}
+// colour during the cutscene: rings of light rippling out across the cloth, and a rising spiral of seeds and petals
+function cineParticles(dt, t, k) {
+  const cl = cine.cl, C = cl.center;
+  while (cine.rings < 3 && t - cine.t0 > .5 + cine.rings * .7) {
+    const col = CINE_PALETTE[(cine.rings * 2 + 1) % CINE_PALETTE.length];
+    for (let i = 0; i < 150; i++) {
+      const a = i / 150 * 6.283, dirv = new THREE.Vector3(Math.cos(a), 0, Math.sin(a));
+      envSpawn(C.clone().addScaledVector(dirv, .01).setY(C.y + .002), dirv.multiplyScalar(.12 + cine.rings * .02).setY(.004), col.clone().multiplyScalar(1.4), 2.6, 3.2, 5);
+    }
+    cine.rings++;
+  }
+  if (k < .78) {
+    cine.spiralAcc += dt * 120;
+    while (cine.spiralAcc > 1) {
+      cine.spiralAcc -= 1;
+      const s = ENV.data[ENV.ix = (ENV.ix + 1) % ENV.data.length];
+      s.kind = 4; s.c0 = C.clone(); s.ang = Math.random() * 6.283; s.rad = .01 + Math.random() * .1; s.h = .002 + Math.random() * .01;
+      s.rise = .012 + Math.random() * .03; s.spin = (Math.random() < .5 ? -1 : 1) * (1.4 + Math.random() * 1.6);
+      s.p.set(C.x + Math.cos(s.ang) * s.rad, C.y + s.h, C.z + Math.sin(s.ang) * s.rad); s.v.set(0, 0, 0);
+      s.c.copy(cineColour(cl)).multiplyScalar(1.2 + Math.random() * .7); s.life = s.max = 3 + Math.random() * 2.5; s.size = 3 + Math.random() * 4;
+    }
+  }
+}
+function endCinematic() {
+  cine = null; cineSpot.intensity = 0; document.body.classList.remove('cine');
+  if (A.padFilter) A.padFilter.frequency.setTargetAtTime(380 + 2400 * completed / Math.max(1, fabric.objects.size), A.ctx.currentTime, 2);
+}
+const _cinePos = new THREE.Vector3(), _cineLook = new THREE.Vector3();
+function cinematicCamera(t, followPos, followLook) {
+  const k = Math.min(1, (t - cine.t0) / cine.dur);
+  cineSpot.intensity = .09 * Math.pow(Math.sin(Math.PI * k), .7);   // about 1.5x the room's lamplight on the meadow: lifts it, doesn't wash it out
+  cineParticles(.016, t, k);
+  if (cine.skip && k < .8) cine.t0 = t - cine.dur * .8;
+  if (k >= 1) { endCinematic(); return false; }
+  const s = Math.sin(Math.PI * Math.min(1, k * 1.05));
+  const a = cine.a0 + k * 2.4;
+  const r = .03 + .16 * Math.pow(s, .8), h = .01 + .085 * Math.pow(s, 1.3);
+  const C = cine.cl.center;
+  _cinePos.set(C.x + Math.cos(a) * r, C.y + h, C.z + Math.sin(a) * r);
+  // keep a clear line of sight from the meadow to the camera
+  const from = C.clone().addScaledVector(cine.cl.flowers[0].n, .006);
+  const dv = _cinePos.clone().sub(from), L = dv.length();
+  ray.origin.copy(from); ray.direction.copy(dv).multiplyScalar(1 / L);
+  const hh = bvh.raycastFirst(ray, THREE.DoubleSide, 0, L);
+  if (hh) _cinePos.copy(from).addScaledVector(ray.direction, Math.max(.01, hh.distance - .006));
+  const w = THREE.MathUtils.smoothstep(k, 0, .16) * (1 - THREE.MathUtils.smoothstep(k, .82, 1));
+  camera.position.lerpVectors(followPos, _cinePos, w);
+  _cineLook.copy(followLook).lerp(from, w);
+  camera.lookAt(_cineLook);
+  camera.fov = THREE.MathUtils.lerp(camera.fov, 72 + 10 * w, .05); camera.updateProjectionMatrix();
+  return true;
+}
+
+// ------------------------------------------------------------------ environmental particles
+// embers riding the lamp updraughts, cool specks falling from the AC, motes in the blind-striped light,
+// steam off the kettle, pollen lifting from woken cloth
+const ENV = { pts: null, data: [], ix: 0, steam: null, sdata: [], six: 0, timers: {} };
+function buildEnv() {
+  const dot = softDot();
+  const N = 2600, p = new Float32Array(N * 3).fill(-50), c = new Float32Array(N * 3), sz = new Float32Array(N).fill(1);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3)); g.setAttribute('color', new THREE.BufferAttribute(c, 3)); g.setAttribute('size', new THREE.BufferAttribute(sz, 1));
+  ENV.pts = new THREE.Points(g, new THREE.ShaderMaterial({
+    uniforms: { uMap: { value: dot }, uScale: { value: innerHeight * .5 } },
+    vertexShader: '#include <common>\n#include <logdepthbuf_pars_vertex>\nattribute float size; attribute vec3 color; varying vec3 vC; uniform float uScale; void main(){ vC = color; vec4 mv = modelViewMatrix * vec4(position, 1.); gl_PointSize = clamp(.0022 * size * uScale / -mv.z, 0., 90.); gl_Position = projectionMatrix * mv;\n#include <logdepthbuf_vertex>\n}',
+    fragmentShader: '#include <logdepthbuf_pars_fragment>\nuniform sampler2D uMap; varying vec3 vC; void main(){\n#include <logdepthbuf_fragment>\nfloat a = texture2D(uMap, gl_PointCoord).a; gl_FragColor = vec4(vC * a, a); }',
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false,
+  }));
+  ENV.pts.frustumCulled = false; scene.add(ENV.pts);
+  for (let i = 0; i < N; i++) ENV.data.push({ p: new THREE.Vector3(0, -50, 0), v: new THREE.Vector3(), c: new THREE.Color(), life: 0, max: 1, size: 1, kind: 0 });
+  // steam: soft, normal-blended puffs
+  const SN = 120, sp = new Float32Array(SN * 3).fill(-50);
+  const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+  ENV.steam = new THREE.Points(sg, new THREE.PointsMaterial({ map: dot, size: .045, color: 0xf4f1ea, transparent: true, opacity: .14, depthWrite: false }));
+  ENV.steam.frustumCulled = false; scene.add(ENV.steam);
+  for (let i = 0; i < SN; i++) ENV.sdata.push({ p: new THREE.Vector3(0, -50, 0), v: new THREE.Vector3(), life: 0 });
+  buildLightShafts();
+}
+function envSpawn(p, v, c, life, size = 1, kind = 0) {
+  const s = ENV.data[ENV.ix = (ENV.ix + 1) % ENV.data.length];
+  s.p.copy(p); s.v.copy(v); s.c.copy(c); s.life = s.max = life; s.size = size; s.kind = kind;
+}
+const KETTLE_SPOUT = new THREE.Vector3(-7.36, 1.09, 1.49);
+const SHAFT_WINDOWS = [[-6.175, .6, 2.0, 2.0], [-3.75, .9, 1.95, 1.5], [-1.425, .2, 1.95, 1.25], [1.0, .2, 1.95, 1.3], [3.45, .2, 1.95, 1.2]]; // z centre, y0, y1, width
+const SHAFT_DIR = new THREE.Vector3(-1, -.42, .22).normalize();
+function buildLightShafts() {
+  for (const [zc, y0, y1, wd] of SHAFT_WINDOWS) {
+    const g = new THREE.BoxGeometry(1, 1, 1, 1, 24, 1), P = g.attributes.position, uvw = new Float32Array(P.count * 2);
+    const len = 2.3, hgt = y1 - y0;
+    for (let i = 0; i < P.count; i++) {
+      const u = P.getX(i), v = P.getY(i), w = P.getZ(i) + .5;
+      const base = new THREE.Vector3(4.46, y0 + (v + .5) * hgt, zc + u * wd);
+      base.addScaledVector(SHAFT_DIR, w * len);
+      P.setXYZ(i, base.x, base.y, base.z); uvw[i * 2] = v + .5; uvw[i * 2 + 1] = w;
+    }
+    g.setAttribute('vw', new THREE.BufferAttribute(uvw, 2)); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, new THREE.ShaderMaterial({
+      uniforms: { uTime: timeU },
+      vertexShader: '#include <common>\n#include <logdepthbuf_pars_vertex>\nattribute vec2 vw; varying vec2 vVW; void main(){ vVW = vw; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);\n#include <logdepthbuf_vertex>\n}',
+      fragmentShader: `#include <logdepthbuf_pars_fragment>
+        uniform float uTime; varying vec2 vVW;
+        void main(){
+          #include <logdepthbuf_fragment>
+          float blinds = step(.38, vVW.x);                       // the upper part of each window is behind the slats
+          float slat = blinds > .5 ? smoothstep(.35, .55, fract(vVW.x * 34.)) : 1.;
+          float a = slat * pow(1. - vVW.y, 1.6) * smoothstep(0., .08, vVW.y) * (.75 + .25 * sin(uTime * .6 + vVW.x * 3.));
+          gl_FragColor = vec4(vec3(1., .9, .72) * a * .018, 1.);
+        }`,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false,
+    }));
+    m.frustumCulled = false; scene.add(m);
+    ENV.timers['shaft' + zc] = { zc, y0, hgt, wd, len, acc: 0 };
+  }
+}
+function updateEnv(dt, t) {
+  if (!ENV.pts) return;
+  const pp = player.pos, near = (q, r) => q.distanceTo(pp) < r;
+  // emitters, only near the mite
+  for (const u of UPDRAFTS) {
+    if (Math.hypot(u.x - pp.x, u.z - pp.z) > 2.5) continue;
+    if (Math.random() < dt * 9) {
+      const a = Math.random() * 6.283, r = Math.random() * .4, x = u.x + Math.cos(a) * r, z = u.z + Math.sin(a) * r;
+      const s = surfaceBelow(x, z, u.y - .25);
+      if (s) envSpawn(s.setY(s.y + .01), new THREE.Vector3(0, .03 + Math.random() * .05, 0), new THREE.Color(1, .66, .32).multiplyScalar(.55 + Math.random() * .5), 9 + Math.random() * 5, .8 + Math.random(), 1);
+    }
+  }
+  for (const a of DOWNDRAFTS) {
+    if (Math.hypot(a.x - pp.x, a.z - pp.z) > 2.5) continue;
+    if (Math.random() < dt * 7) {
+      const ang = Math.random() * 6.283, r = Math.random() * .3;
+      envSpawn(new THREE.Vector3(a.x + Math.cos(ang) * r, a.y - .15, a.z + Math.sin(ang) * r), new THREE.Vector3(0, -.06, 0), new THREE.Color(.62, .78, 1).multiplyScalar(.7 + Math.random() * .5), 12, .6 + Math.random() * .6, 2);
+    }
+  }
+  for (const k in ENV.timers) {
+    const S = ENV.timers[k];
+    if (Math.hypot(4.0 - pp.x, S.zc - pp.z) > 3.5) continue;
+    S.acc += dt * 5;
+    while (S.acc > 1) {
+      S.acc -= 1;
+      const q = new THREE.Vector3(4.46, S.y0 + Math.random() * S.hgt, S.zc + (Math.random() - .5) * S.wd).addScaledVector(SHAFT_DIR, Math.random() * S.len * .9);
+      envSpawn(q, new THREE.Vector3((Math.random() - .5) * .006, (Math.random() - .5) * .004, (Math.random() - .5) * .006), new THREE.Color(1, .93, .8).multiplyScalar(.55), 10 + Math.random() * 6, .5 + Math.random() * .5, 3);
+    }
+  }
+  if (Math.random() < dt * 2.5) {   // pollen lifting off cloth you've woken
+    const P = fabric.patches[(Math.random() * fabric.patches.length) | 0];
+    if (P.state && near(P.center, 1.2)) envSpawn(P.center.clone().setY(P.center.y + .002), new THREE.Vector3((Math.random() - .5) * .006, .012 + Math.random() * .012, (Math.random() - .5) * .006), P.obj.col.clone().multiplyScalar(.85), 7, .7, 0);
+  }
+  if (near(KETTLE_SPOUT, 4) && Math.random() < dt * 6) {
+    const s = ENV.sdata[ENV.six = (ENV.six + 1) % ENV.sdata.length];
+    s.p.copy(KETTLE_SPOUT); s.v.set(.02 + Math.random() * .02, .09 + Math.random() * .05, (Math.random() - .5) * .02); s.life = 3.5;
+  }
+  // integrate
+  const P = ENV.pts.geometry.attributes.position, C = ENV.pts.geometry.attributes.color, Z = ENV.pts.geometry.attributes.size;
+  ENV.data.forEach((s, i) => {
+    if (s.life <= 0) { P.setXYZ(i, 0, -50, 0); return; }
+    s.life -= dt;
+    flow(s.p, t, _f);
+    if (s.kind === 1) { s.v.y += (.05 - s.v.y) * dt * .5; s.p.x += Math.sin(t * 1.3 + i) * dt * .02; s.p.z += Math.cos(t * 1.1 + i) * dt * .02; }
+    else if (s.kind === 2) { s.v.addScaledVector(_f, dt * .6); s.v.multiplyScalar(1 - dt * .3); s.p.x += Math.sin(t * 2 + i) * dt * .03; }
+    else if (s.kind === 3) { s.v.addScaledVector(_f, dt * .02); }
+    else if (s.kind === 4) { s.ang += s.spin * dt; s.rad += dt * .012; s.h += s.rise * dt; s.p.set(s.c0.x + Math.cos(s.ang) * s.rad, s.c0.y + s.h, s.c0.z + Math.sin(s.ang) * s.rad); s.v.set(0, 0, 0); }
+    else if (s.kind === 5) { s.v.multiplyScalar(1 - dt * .9); }
+    else { s.v.multiplyScalar(1 - dt * .4); s.v.y += dt * .004; s.p.x += Math.sin(t * 1.7 + i) * dt * .004; s.p.z += Math.cos(t * 1.4 + i) * dt * .004; }
+    s.p.addScaledVector(s.v, dt);
+    const k = Math.min(1, s.life / 1.2) * Math.min(1, (s.max - s.life) / .6) * (.75 + .25 * Math.sin(t * 6 + i));
+    P.setXYZ(i, s.p.x, s.p.y, s.p.z); C.setXYZ(i, s.c.r * k, s.c.g * k, s.c.b * k); Z.setX(i, s.size);
+  });
+  P.needsUpdate = true; C.needsUpdate = true; Z.needsUpdate = true;
+  const SP = ENV.steam.geometry.attributes.position;
+  ENV.sdata.forEach((s, i) => {
+    if (s.life <= 0) { SP.setXYZ(i, 0, -50, 0); return; }
+    s.life -= dt; s.v.multiplyScalar(1 - dt * .5); s.v.x += Math.sin(t * 2 + i) * dt * .02; s.p.addScaledVector(s.v, dt);
+    SP.setXYZ(i, s.p.x, s.p.y, s.p.z);
+  });
+  SP.needsUpdate = true;
+}
+
+// ------------------------------------------------------------------ fabric objects, patches, touch detection
+function buildFabric(fgeos, fobj) {
+  triObj = [];
+  const tmp = new THREE.Vector3(), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3();
+  const patchKey = new Map(), CELL = .2;
+  fobj.forEach(([obj, fam, tris, mesh], gi) => {
+    makeWoven(mesh.material, fam);
+    if (!fabric.objects.has(obj)) {
+      const col = new THREE.Color(); const hsl = {};
+      mesh.material.color.getHSL(hsl);
+      col.setHSL(hsl.h, Math.min(1, hsl.s * 1.6 + .25), THREE.MathUtils.clamp(hsl.l * 1.3 + .2, .4, .68));
+      fabric.objects.set(obj, { name: obj, fam, patches: [], done: 0, complete: false, col, mat: mesh.material });
+    }
+    const O = fabric.objects.get(obj);
+    for (let t = 0; t < tris; t++) triObj.push(O);
+    // sample the surface (~150 points per m²) and bucket into 20 cm patches
+    const pos = fgeos[gi].attributes.position;
+    for (let t = 0; t < tris; t++) {
+      a.fromBufferAttribute(pos, t * 3); b.fromBufferAttribute(pos, t * 3 + 1); c.fromBufferAttribute(pos, t * 3 + 2);
+      n.subVectors(c, b).cross(tmp.subVectors(a, b));
+      const ar = n.length() * .5; if (ar < 1e-7) continue;
+      n.normalize(); if (n.y < -.35) continue;
+      let k = Math.floor(ar * 150) + (Math.random() < (ar * 150) % 1 ? 1 : 0);
+      while (k--) {
+        let u = Math.random(), v = Math.random(); if (u + v > 1) { u = 1 - u; v = 1 - v; }
+        tmp.copy(a).multiplyScalar(1 - u - v).addScaledVector(b, u).addScaledVector(c, v);
+        const key = `${obj}|${Math.floor(tmp.x / CELL)}|${Math.floor(tmp.y / CELL)}|${Math.floor(tmp.z / CELL)}`;
+        let P = patchKey.get(key);
+        if (!P) { P = { obj: O, sum: new THREE.Vector3(), n: 0, center: new THREE.Vector3(), state: 0, due: 0 }; patchKey.set(key, P); fabric.patches.push(P); O.patches.push(P); }
+        P.sum.add(tmp); P.n++;
+      }
+    }
+  });
+  for (const P of fabric.patches) {
+    P.center.copy(P.sum).multiplyScalar(1 / P.n);
+    const k = hashKey(P.center); if (!fabric.hash.has(k)) fabric.hash.set(k, []); fabric.hash.get(k).push(P);
+  }
+  for (const [k, O] of fabric.objects) if (!O.patches.length) fabric.objects.delete(k);
+  fabricBVH = new MeshBVH(mergeGeometries(fgeos, false));
+  $('count').innerHTML = `0<small>/ ${fabric.objects.size} 咲いた</small>`;
+}
+const HCELL = .5;
+const hashKey = p => `${Math.floor(p.x / HCELL)},${Math.floor(p.y / HCELL)},${Math.floor(p.z / HCELL)}`;
+function patchesNear(p, r, out) {
+  out.length = 0;
+  const s = Math.ceil(r / HCELL);
+  const cx = Math.floor(p.x / HCELL), cy = Math.floor(p.y / HCELL), cz = Math.floor(p.z / HCELL);
+  for (let x = cx - s; x <= cx + s; x++) for (let y = cy - s; y <= cy + s; y++) for (let z = cz - s; z <= cz + s; z++) {
+    const L = fabric.hash.get(`${x},${y},${z}`); if (!L) continue;
+    for (const P of L) if (P.center.distanceToSquared(p) < r * r) out.push(P);
+  }
+  return out;
+}
+
+// ------------------------------------------------------------------ bloom painting (floor-plan map, max-blended)
+const paintScene = new THREE.Scene(), paintCam = new THREE.Camera();
+const paintGeo = new THREE.PlaneGeometry(2, 2);
+function paintCircle(c) {
+  const m = new THREE.Mesh(paintGeo, new THREE.ShaderMaterial({
+    uniforms: { uC: { value: new THREE.Vector2() }, uR: { value: new THREE.Vector2() }, uTime: timeU, uQuiet: { value: c.quiet ? 1 : 0 } },
+    vertexShader: `uniform vec2 uC; uniform vec2 uR; varying vec2 vP; void main(){ vP = position.xy; gl_Position = vec4((uC + position.xy * uR) * 2. - 1., 0., 1.); }`,
+    fragmentShader: `uniform float uTime; uniform float uQuiet; varying vec2 vP; void main(){ float r = length(vP); float m = 1. - smoothstep(.8, 1., r); float edge = smoothstep(.6, .92, r) * m; gl_FragColor = vec4(m, (edge > .02 && uQuiet < .5) ? uTime : 0., 0., 1.); }`,
+    blending: THREE.CustomBlending, blendEquation: THREE.MaxEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
+    depthTest: false, depthWrite: false,
+  }));
+  m.frustumCulled = false;
+  m.material.uniforms.uC.value.set((c.p.x - MAP_RECT.x) / MAP_RECT.z, (c.p.z - MAP_RECT.y) / MAP_RECT.w);
+  c.mesh = m; paintScene.add(m);
+}
+function updatePaint(t) {
+  let any = false;
+  for (const c of fabric.circles) {
+    if (!c.mesh) continue;
+    const k = Math.min(1, (t - c.t0) / c.dur), r = c.r * (1 - Math.pow(1 - k, 2));
+    c.mesh.material.uniforms.uR.value.set(r / MAP_RECT.z, r / MAP_RECT.w);
+    any = true;
+    if (k >= 1) { c.done = true; }
+  }
+  if (any) {
+    renderer.setRenderTarget(bloomRT); renderer.autoClear = false;
+    renderer.render(paintScene, paintCam);
+    renderer.autoClear = true; renderer.setRenderTarget(null);
+  }
+  for (const c of fabric.circles) if (c.done && c.mesh) { paintScene.remove(c.mesh); c.mesh.material.dispose(); c.mesh = null; }
+}
+
+// ------------------------------------------------------------------ player (the mite)
+const player = { pos: HOME.clone(), vel: new THREE.Vector3(), speed: .05, gust: 0, history: [], combo: 0, lastBloom: -9, dent: 0, dentV: 0 };
+let mite, legs = [], miteLight, motes, moteCount = 0;
+const MAX_MOTES = 160;
+// The mite (Dermatophagoides): eyeless, oval, cream and slightly translucent, with a finely ridged cuticle,
+// mouthparts (chelicerae + palps), eight five-segment legs with suction pads, and long trailing setae.
+// Modelled at 1 unit = body length, then scaled to ~3.2 mm.
+let miteModel, miteShadow, miteSetae = [], gaitPhase = 0;
+const surfN = new THREE.Vector3(0, 1, 0), nhit = { point: new THREE.Vector3(), distance: 0 };
+function seg(r, len, mat) {              // a capsule running from the local origin along +x
+  const g = new THREE.CapsuleGeometry(r, len, 4, 10); g.rotateZ(-Math.PI / 2); g.translate(len / 2, 0, 0);
+  return new THREE.Mesh(g, mat);
+}
+function hairOn(parent, mat, x, len, r, up, out) {
+  const h = new THREE.Mesh(new THREE.ConeGeometry(r, len, 4).translate(0, len / 2, 0), mat);
+  h.position.set(x, 0, 0); h.rotation.set(out, 0, -up); parent.add(h);
+}
+function buildPlayer() {
+  mite = new THREE.Group();
+  miteModel = new THREE.Group(); miteModel.scale.setScalar(.0032); mite.add(miteModel);
+  const B = miteModel;
+  // --- materials
+  const shell = new THREE.MeshPhysicalMaterial({ color: 0xf1ddb8, roughness: .82, sheen: .35, sheenColor: 0xf6e6c8, sheenRoughness: .8,
+    envMapIntensity: .35, emissive: 0x3b2c1a, emissiveIntensity: .35 });
+  shell.onBeforeCompile = sh => {
+    sh.vertexShader = 'varying vec3 vOP;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vOP = transformed;');
+    sh.fragmentShader = 'varying vec3 vOP;\n' + sh.fragmentShader
+      .replace('#include <map_fragment>', `#include <map_fragment>
+        // striated cuticle: fine fingerprint ridges, lengthwise on the back and wrapping round the flanks
+        float rTop = sin(vOP.x * 300. + sin(vOP.z * 9.) * 2.2);
+        float rSide = sin(vOP.z * 320. + vOP.y * 60. + sin(vOP.x * 14.) * 1.5);
+        float ridgeH = mix(rSide, rTop, smoothstep(.08, .18, vOP.y)) * .5 + .5;
+        // the gut and food boluses show through the cuticle
+        float gut = 1. - smoothstep(.55, 1.05, length((vOP - vec3(0., .03, -.06)) / vec3(.2, .13, .3)));
+        float bolus = 1. - smoothstep(.0, .9, length((vOP - vec3(.03, .05, -.16)) / vec3(.07, .06, .08)));
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(.82, .66, .48), gut * .55 + bolus * .35);
+        diffuseColor.rgb *= .96 + .04 * ridgeH;`)
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+        {
+          vec2 dH = vec2(dFdx(ridgeH), dFdy(ridgeH)) * .2;
+          vec3 sx = dFdx(-vViewPosition), sy = dFdy(-vViewPosition);
+          vec3 R1 = cross(sy, normal), R2 = cross(normal, sx); float det = dot(sx, R1);
+          normal = normalize(abs(det) * normal - sign(det) * (dH.x * R1 + dH.y * R2));
+        }`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        float fres = pow(1. - abs(dot(normalize(vViewPosition), normal)), 2.4);
+        totalEmissiveRadiance += vec3(1., .84, .6) * fres * .22 + vec3(.9, .66, .4) * gut * .05;`);
+  };
+  const legMat = new THREE.MeshPhysicalMaterial({ color: 0xdcbf8c, roughness: .75, envMapIntensity: .4, sheen: .3, sheenColor: 0xffe6bf, emissive: 0x3a2812, emissiveIntensity: .4 });
+  const jointMat = new THREE.MeshPhysicalMaterial({ color: 0xc9a46c, roughness: .4, emissive: 0x2a1c0c, emissiveIntensity: .35 });
+  const setaMat = new THREE.MeshStandardMaterial({ color: 0xeee0c4, roughness: .35, emissive: 0x3a2c18, emissiveIntensity: .5 });
+  // --- idiosoma: domed back, flatter belly, broader behind, a furrow between the 2nd and 3rd leg pairs
+  const g = new THREE.SphereGeometry(1, 112, 72), P = g.attributes.position;
+  for (let i = 0; i < P.count; i++) {
+    const x = P.getX(i), y = P.getY(i), z = P.getZ(i);
+    const w = .35 * (1 + .1 * -z);
+    const furrow = 1 - .07 * Math.exp(-Math.pow((z - .2) / .1, 2));
+    const front = z > .6 ? 1 - (z - .6) * .7 : 1;
+    P.setXYZ(i, x * w * furrow * front, y * (y > 0 ? .25 : .13) * furrow, z * .5);
+  }
+  g.computeVertexNormals();
+  B.add(new THREE.Mesh(g, shell));
+  // --- gnathosoma: capitulum, chelicerae with their pincer tips, two-segment palps
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 24).scale(.1, .07, .13), shell); cap.position.set(0, -.035, .55); B.add(cap);
+  for (const s of [-1, 1]) {
+    const che = seg(.024, .09, legMat); che.position.set(s * .032, -.04, .6); che.rotation.y = -Math.PI / 2 + s * .1; B.add(che);
+    for (const dy of [-.012, .012]) { const dig = new THREE.Mesh(new THREE.ConeGeometry(.011, .05, 8).rotateX(Math.PI / 2), jointMat); dig.position.set(s * .036, -.04 + dy, .74); dig.rotation.x = -dy * 4; B.add(dig); }
+    const palp = new THREE.Group(); palp.position.set(s * .075, -.055, .6); palp.rotation.y = -Math.PI / 2 + s * .45; palp.rotation.z = -.25; B.add(palp);
+    palp.add(seg(.02, .07, legMat));
+    const p2 = new THREE.Group(); p2.position.x = .09; p2.rotation.z = -.35; palp.add(p2); p2.add(seg(.015, .06, legMat));
+    hairOn(p2, setaMat, .08, .07, .004, .8, 0); hairOn(p2, setaMat, .05, .05, .003, 1.2, .5);
+    B.userData.palps = (B.userData.palps || []).concat([palp]);
+  }
+  // --- legs: four pairs, coxa plates on the belly, five segments, setae, and an ambulacral pad at each tip
+  legs = [];
+  const LEN = [.06, .19, .09, .1, .13], RAD = [.04, .036, .029, .025, .019];
+  const SWEEP = [.95, .3, -.3, -.85], ATTZ = [.3, .16, -.06, -.22];
+  for (let pair = 0; pair < 4; pair++) for (const side of [-1, 1]) {
+    const z = ATTZ[pair], dz = Math.sin(SWEEP[pair]), dx = side * Math.cos(SWEEP[pair]);
+    const hip = new THREE.Group(); hip.position.set(side * .27, -.06, z); hip.rotation.y = Math.atan2(-dz, dx); B.add(hip);
+    const coxa = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10).scale(.07, .025, .05), legMat); coxa.position.set(-.06, -.03, 0); hip.add(coxa);
+    const joints = []; let parent = hip;
+    for (let k = 0; k < 5; k++) {
+      const j = new THREE.Group(); if (k) j.position.x = LEN[k - 1]; parent.add(j); joints.push(j);
+      j.add(seg(RAD[k], LEN[k], legMat));
+      if (k) j.add(new THREE.Mesh(new THREE.SphereGeometry(RAD[k] * 1.12, 12, 8), jointMat));
+      if (k >= 1) hairOn(j, setaMat, LEN[k] * .6, .07 + k * .015, .0045, .7, side * .3);
+      if (k >= 3) hairOn(j, setaMat, LEN[k] * .3, .06, .004, 1.1, -side * .4);
+      parent = j;
+    }
+    const pad = new THREE.Group(); pad.position.x = LEN[4] + .02; parent.add(pad);
+    pad.add(new THREE.Mesh(new THREE.SphereGeometry(.024, 14, 10).scale(1, .55, 1.2), jointMat));
+    for (const s2 of [-1, 1]) { const cl = new THREE.Mesh(new THREE.ConeGeometry(.007, .04, 6).rotateZ(-Math.PI / 2), jointMat); cl.position.set(.025, -.005, s2 * .012); cl.rotation.y = s2 * .4; pad.add(cl); }
+    if (pair === 0) hairOn(joints[4], setaMat, .1, .16, .004, .5, 0);   // the sensory solenidion on the first legs
+    const rest = pair === 0 ? [.0, .75, -.5, -.35, -.2] : [.0, .48, -.62, -.5, -.38];
+    legs.push({ side, pair, joints, rest, cur: rest.slice(), yaw0: hip.rotation.y });
+  }
+  // --- body setae: long trailing caudal pairs, dorsal, lateral and a forward pair; each sways on a spring
+  const setaDef = [];
+  for (const s of [-1, 1]) {
+    setaDef.push([s * .05, .05, -.47, s * .18, .2, -1, 1.15, .007], [s * .12, .02, -.44, s * .55, .1, -1, .85, .006]);
+    for (const [z, l] of [[.32, .2], [.17, .26], [-.02, .3], [-.22, .34]]) setaDef.push([s * .12, .21, z, s * .25, .7, -.8, l, .0045]);
+    for (const [z, l] of [[.26, .4], [.06, .45], [-.14, .5], [-.33, .55]]) setaDef.push([s * .33, .0, z, s * 1, .15, -.45, l, .005]);
+    setaDef.push([s * .05, .15, .42, s * .1, 1, .55, .26, .004]);
+  }
+  for (const [x, y, z, dx, dy, dz, len, r] of setaDef) {
+    const piv = new THREE.Group(); piv.position.set(x, y, z);
+    const dirv = new THREE.Vector3(dx, dy, dz).normalize();
+    piv.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dirv);
+    const flex = new THREE.Group(); piv.add(flex);
+    const pts = []; for (let k = 0; k <= 6; k++) { const t = k / 6; pts.push(new THREE.Vector3(0, -Math.pow(t, 2) * len * .18, t * len)); }
+    flex.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 14, r, 5, false), setaMat));
+    B.add(piv); miteSetae.push({ flex, ax: 0, ay: 0, vx: 0, vy: 0, len, k: 20 / (.4 + len) });
+  }
+  scene.add(mite);
+  // soft contact shadow so the mite sits on the cloth instead of hovering above it
+  const sc = document.createElement('canvas'); sc.width = sc.height = 64; const sg = sc.getContext('2d');
+  const gr = sg.createRadialGradient(32, 32, 2, 32, 32, 32); gr.addColorStop(0, 'rgba(0,0,0,.32)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); sg.fillStyle = gr; sg.fillRect(0, 0, 64, 64);
+  miteShadow = new THREE.Mesh(new THREE.PlaneGeometry(.007, .009), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(sc), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+  scene.add(miteShadow);
+  miteLight = new THREE.PointLight(0xffd29a, .0004, .03, 2); scene.add(miteLight);
+  motes = new THREE.InstancedMesh(new THREE.OctahedronGeometry(.00045, 0), new THREE.MeshBasicMaterial({ toneMapped: false }), MAX_MOTES);
+  motes.count = 0; motes.frustumCulled = false;
+  for (let i = 0; i < MAX_MOTES; i++) motes.setColorAt(i, new THREE.Color(0, 0, 0));
+  scene.add(motes);
+}
+
+// ------------------------------------------------------------------ dust in the air + sparkles
+let dust, sparks, sparkData = [];
+function softDot() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'), r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(.25, 'rgba(255,255,255,.75)'); r.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = r; g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
+function buildDust() {
+  const dot = softDot();
+  const N = MOBILE ? 1500 : 3500, p = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    p[i * 3] = THREE.MathUtils.lerp(BOUNDS.min.x, BOUNDS.max.x, Math.random());
+    p[i * 3 + 1] = Math.pow(Math.random(), 2.5) * 2.3 + .003;   // most dust hangs low, near the mite
+    p[i * 3 + 2] = THREE.MathUtils.lerp(BOUNDS.min.z, BOUNDS.max.z, Math.random());
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  dust = new THREE.Points(g, new THREE.PointsMaterial({ map: dot, color: 0xffe2b8, size: .0007, transparent: true, opacity: .7, depthWrite: false, blending: THREE.AdditiveBlending }));
+  dust.frustumCulled = false; scene.add(dust);
+  const SN = 500, sp = new Float32Array(SN * 3).fill(-50), sc = new Float32Array(SN * 3);
+  const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3)); sg.setAttribute('color', new THREE.BufferAttribute(sc, 3));
+  sparks = new THREE.Points(sg, new THREE.PointsMaterial({ map: dot, size: .0016, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+  sparks.frustumCulled = false; scene.add(sparks);
+  for (let i = 0; i < SN; i++) sparkData.push({ p: new THREE.Vector3(0, -50, 0), v: new THREE.Vector3(), c: new THREE.Color(), life: 0, max: 1 });
+}
+let lintPts, lintData = [], lintIx = 0;
+// wind streaks that rush past while riding a gust
+let streaks, streakData = [];
+function buildStreaks() {
+  const N = 70, pos = new Float32Array(N * 6), col = new Float32Array(N * 6);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  streaks = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+  streaks.frustumCulled = false; scene.add(streaks);
+  for (let i = 0; i < N; i++) streakData.push({ p: new THREE.Vector3(0, -50, 0), life: 0, max: 1 });
+}
+let streakIx = 0;
+function updateStreaks(dt) {
+  const P = streaks.geometry.attributes.position, C = streaks.geometry.attributes.color;
+  const g = player.gust, sp = player.vel.length();
+  if (g > .25) for (let k = 0; k < Math.ceil(g * 3); k++) {
+    const s = streakData[streakIx = (streakIx + 1) % streakData.length];
+    const side = new THREE.Vector3(Math.random() - .5, Math.random() - .5, Math.random() - .5).multiplyScalar(.04);
+    s.p.copy(player.pos).addScaledVector(dir, .03 + Math.random() * .05).add(side); s.life = s.max = .25 + Math.random() * .25;
+  }
+  const v = player.vel.clone().normalize(), len = .006 + sp * .05;
+  streakData.forEach((s, i) => {
+    if (s.life <= 0) { P.setXYZ(i * 2, 0, -50, 0); P.setXYZ(i * 2 + 1, 0, -50, 0); return; }
+    s.life -= dt; s.p.addScaledVector(v, -sp * dt * .6);
+    const k = Math.sin(Math.PI * Math.max(0, s.life / s.max)) * .5 * g;
+    P.setXYZ(i * 2, s.p.x, s.p.y, s.p.z); P.setXYZ(i * 2 + 1, s.p.x - v.x * len, s.p.y - v.y * len, s.p.z - v.z * len);
+    C.setXYZ(i * 2, k, k * .95, k * .85); C.setXYZ(i * 2 + 1, 0, 0, 0);
+  });
+  P.needsUpdate = true; C.needsUpdate = true;
+}
+function buildLint() {
+  const N = 600, p = new Float32Array(N * 3).fill(-50), c = new Float32Array(N * 3);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3)); g.setAttribute('color', new THREE.BufferAttribute(c, 3));
+  lintPts = new THREE.Points(g, new THREE.PointsMaterial({ map: softDot(), size: .0011, vertexColors: true, transparent: true, depthWrite: false, opacity: .95 }));
+  lintPts.frustumCulled = false; scene.add(lintPts);
+  for (let i = 0; i < N; i++) lintData.push({ p: new THREE.Vector3(0, -50, 0), v: new THREE.Vector3(), c: new THREE.Color(), life: 0, max: 1 });
+}
+function lint(p, v, col) {
+  const s = lintData[lintIx = (lintIx + 1) % lintData.length];
+  s.p.copy(p).y += .001; s.v.copy(v); s.c.copy(col).lerp(new THREE.Color(1, 1, 1), .35 * Math.random()); s.life = s.max = 2.5 + Math.random() * 2;
+}
+function updateLint(dt, t) {
+  if (!lintPts) return;
+  const P = lintPts.geometry.attributes.position, C = lintPts.geometry.attributes.color;
+  lintData.forEach((s, i) => {
+    if (s.life <= 0) { P.setXYZ(i, 0, -50, 0); return; }
+    s.life -= dt; s.v.multiplyScalar(1 - dt * 2.2); s.v.y -= dt * .006;
+    s.p.addScaledVector(s.v, dt); s.p.x += Math.sin(t * 3 + i) * dt * .002; s.p.z += Math.cos(t * 2.6 + i) * dt * .002;
+    if (s.p.y < 0) s.p.y = 0;
+    const k = Math.min(1, s.life / .6);
+    P.setXYZ(i, s.p.x, s.p.y, s.p.z); C.setXYZ(i, s.c.r * k, s.c.g * k, s.c.b * k);
+  });
+  P.needsUpdate = true; C.needsUpdate = true;
+}
+let sparkIx = 0;
+function spark(p, v, c, life) {
+  const s = sparkData[sparkIx = (sparkIx + 1) % sparkData.length];
+  s.p.copy(p); s.v.copy(v); s.c.copy(c); s.life = s.max = life;
+}
+
+// ------------------------------------------------------------------ air currents
+const _f = new THREE.Vector3();
+function flow(p, t, out) {
+  out.set(Math.sin(p.z * 1.3 + t * .21) * .05, Math.sin(p.x * 1.1 + p.z * .7 + t * .15) * .025, Math.cos(p.x * 1.7 - t * .17) * .05);
+  for (const u of UPDRAFTS) {
+    const dx = p.x - u.x, dz = p.z - u.z, d = Math.hypot(dx, dz);
+    if (d < .55 && p.y < u.y + .1) out.y += .38 * (1 - d / .55);
+  }
+  for (const a of DOWNDRAFTS) {
+    const dx = p.x - a.x, dz = p.z - a.z, d = Math.hypot(dx, dz) + 1e-3;
+    if (d < 1.3 && p.y < a.y) { const k = 1 - d / 1.3; out.y -= .32 * k * Math.min(1, p.y / .4); out.x += dx / d * .22 * k; out.z += dz / d * .22 * k; }
+  }
+  if (p.x > 3.4) out.x -= .09 * Math.min(1, (p.x - 3.4));
+  return out;
+}
+
+// ------------------------------------------------------------------ input
+// Mouse-look flight: the mouse turns the mite directly (pointer lock when the browser allows it).
+// It always drifts forward; W speeds up, S brakes, Space / click / the Breeze button rides the gust.
+const input = { yawD: 0, pitchD: 0, hold: false, keys: new Set(), locked: false, dragging: false, lastX: 0, lastY: 0 };
+const stage = $('stage');
+const SENS = .0028;
+stage.addEventListener('pointerdown', e => {
+  if (!playing) return;
+  if (cine) { cine.skip = true; return; }
+  if (e.pointerType === 'mouse') {
+    if (!input.locked && stage.requestPointerLock) { try { const p = stage.requestPointerLock(); p?.catch?.(() => {}); } catch {} }
+    input.hold = true;
+  } else { input.dragging = true; input.lastX = e.clientX; input.lastY = e.clientY; stage.setPointerCapture?.(e.pointerId); }
+});
+stage.addEventListener('pointermove', e => {
+  if (!playing) return;
+  if (e.pointerType === 'mouse') { input.yawD += e.movementX || 0; input.pitchD += e.movementY || 0; }
+  else if (input.dragging) { input.yawD += (e.clientX - input.lastX) * 1.5; input.pitchD += (e.clientY - input.lastY) * 1.5; input.lastX = e.clientX; input.lastY = e.clientY; }
+});
+const release = () => { input.hold = false; input.dragging = false; };
+stage.addEventListener('pointerup', release); stage.addEventListener('pointercancel', release);
+document.addEventListener('pointerlockchange', () => { input.locked = document.pointerLockElement === stage; });
+const breeze = $('breeze');
+breeze.addEventListener('pointerdown', e => { e.stopPropagation(); input.hold = true; breeze.setPointerCapture?.(e.pointerId); });
+breeze.addEventListener('pointerup', () => { input.hold = false; }); breeze.addEventListener('pointercancel', () => { input.hold = false; });
+addEventListener('keydown', e => {
+  if (e.code === 'Space') { input.hold = true; e.preventDefault(); }
+  else if (e.code === 'KeyM') toggleMute();
+  if (e.code.startsWith('Arrow')) e.preventDefault();
+  input.keys.add(e.code);
+});
+addEventListener('keyup', e => { if (e.code === 'Space') input.hold = false; input.keys.delete(e.code); });
+addEventListener('blur', () => { input.keys.clear(); input.hold = false; });
+function toggleMute() {
+  A.muted = !A.muted;
+  if (A.master) A.master.gain.setTargetAtTime(A.muted ? 0 : .85, A.ctx.currentTime, .1);
+  $('mute').textContent = A.muted ? 'Sound off' : 'Sound on'; $('mute').setAttribute('aria-pressed', String(A.muted));
+}
+$('mute').addEventListener('click', toggleMute);
+const head = { yaw: Math.PI / 2, pitch: -.05 };
+const dir = new THREE.Vector3(1, 0, 0), camDirS = new THREE.Vector3(-1, .45, 0).normalize(), camFocus = new THREE.Vector3();
+function goHome() {
+  player.pos.copy(HOME); player.vel.set(0, 0, 0);
+  if (titleShot.look) { dir.subVectors(titleShot.look, HOME).setY(0).normalize(); head.yaw = Math.atan2(dir.x, dir.z); head.pitch = -.05; }
+  else { head.yaw = Math.PI / 2; head.pitch = -.05; dir.set(1, 0, 0); }
+  camDirS.set(-1, .45, 0).normalize(); camFocus.copy(HOME); camDist = .006;
+}
+$('home').addEventListener('click', goHome);
+
+// ------------------------------------------------------------------ game loop
+let playing = false, started = 0, captionTimer = 0, completed = 0, finale = false, camDist = .004;
+const clock = new THREE.Clock();
+const near = [];
+const camGoal = new THREE.Vector3(), camLook = new THREE.Vector3(1.5, .3, -5.4);
+const hit = { point: new THREE.Vector3(), distance: 0 }, fhit = { point: new THREE.Vector3(), distance: 0, faceIndex: 0 };
+const ray = new THREE.Ray();
+const _n = new THREE.Vector3(), _rem = new THREE.Vector3(), _up0 = new THREE.Vector3(0, 1, 0);
+
+$('begin').addEventListener('click', () => {
+  initAudio(); playing = true; started = timeU.value; goHome();
+  if (!MOBILE && stage.requestPointerLock) { try { const p = stage.requestPointerLock(); p?.catch?.(() => {}); } catch {} }
+  $('title').classList.add('gone'); document.body.classList.add('playing'); $('hud').classList.add('on'); $('hint').classList.add('on');
+  setTimeout(() => $('hint').classList.remove('on'), 7000);
+  note(0, 'glass', .7); note(7, 'glass', .6, 0, .12); note(14, 'celesta', .5, 0, .24);
+});
+
+// a touch wakes a circle of cloth; the wave front spreads out and plays a little run of notes as it goes
+function bloomAt(p, O, gust) {
+  const t = timeU.value;
+  const r = .28 + .25 * gust, dur = 1.5;
+  const fresh = patchesNear(p, r, []).filter(P => !P.state && !P.due);
+  if (!fresh.length) return;
+  const c = { p: p.clone(), r, t0: t, dur };
+  fabric.circles.push(c); paintCircle(c);
+  for (const P of fresh) P.due = t + P.center.distanceTo(p) / r * dur * .9;
+  if (t - player.lastBloom > 2.2) player.combo = 0;
+  player.lastBloom = t;
+  const notes = Math.min(4, 1 + Math.floor(fresh.length / 4));
+  const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+  const pan = new THREE.Vector3().subVectors(p, player.pos).dot(camRight) * 40;
+  for (let i = 0; i < notes; i++) {
+    const k = player.combo++;
+    note(PENTA[k % 5] + 12 * Math.min(2, Math.floor(k / 5) % 3) + 12 * O.fam.oct, O.fam.voice, .7 + Math.random() * .3, pan, i * .16);
+  }
+  for (let k = 0; k < 2 && moteCount < MAX_MOTES; k++) { motes.setColorAt(moteCount, O.col.clone().multiplyScalar(2.2)); moteCount++; motes.count = moteCount; motes.instanceColor.needsUpdate = true; }
+  for (let k = 0; k < 10; k++) spark(p, new THREE.Vector3((Math.random() - .5) * .02, .008 + Math.random() * .02, (Math.random() - .5) * .02), O.col.clone().multiplyScalar(1.8), .9 + Math.random() * .7);
+  pulseU.set(p.x, p.y, p.z, t);
+}
+function settlePatches(t) {
+  for (const P of fabric.patches) {
+    if (P.state || !P.due || t < P.due) continue;
+    P.state = 1; const O = P.obj; O.done++;
+    if (!O.complete && O.done >= O.patches.length) {
+      O.complete = true; completed++;
+      flourish(O.fam.oct > 0 ? 1 : 0);
+      if (A.padFilter) A.padFilter.frequency.setTargetAtTime(380 + 2400 * completed / fabric.objects.size, A.ctx.currentTime, 2);
+      const [jp, en] = prettyName(O.name);
+      $('capjp').textContent = jp; $('capen').textContent = en; $('caption').classList.add('on'); captionTimer = 3.2;
+      $('count').innerHTML = `${completed}<small>/ ${fabric.objects.size} 咲いた</small>`;
+      $('prog').style.width = (completed / fabric.objects.size * 100) + '%';
+      if (completed === fabric.objects.size && !finale) {
+        finale = true;
+        setTimeout(() => { $('capjp').textContent = '部屋が咲いた'; $('capen').textContent = 'The whole room is in bloom'; $('caption').classList.add('on'); captionTimer = 8; flourish(1); }, 1600);
+      }
+    }
+  }
+}
+
+// swept sphere move: never tunnel through a surface, slide along it instead
+function moveSwept(delta, R) {
+  _rem.copy(delta);
+  for (let k = 0; k < 4; k++) {
+    const len = _rem.length(); if (len < 1e-8) return;
+    ray.origin.copy(player.pos); ray.direction.copy(_rem).multiplyScalar(1 / len);
+    const h = bvh.raycastFirst(ray, THREE.DoubleSide, 0, len + R);
+    if (!h) { player.pos.add(_rem); return; }
+    _n.copy(h.face.normal); if (_n.dot(ray.direction) > 0) _n.negate();
+    const travel = Math.max(0, h.distance - R);
+    player.pos.addScaledVector(ray.direction, travel);
+    _rem.copy(ray.direction).multiplyScalar(len - travel);
+    const blocked = -_rem.dot(_n);
+    _rem.addScaledVector(_n, blocked);
+    const vn = player.vel.dot(_n);
+    if (vn < 0) {
+      player.vel.addScaledVector(_n, -vn);
+      if (Math.abs(_n.y) < .6) {                       // a wall of cloth or wood: crawl up it like a real mite
+        const climb = new THREE.Vector3(0, 1, 0).addScaledVector(_n, -_n.y).normalize();
+        _rem.addScaledVector(climb, Math.max(0, blocked) * .9);
+        player.vel.addScaledVector(climb, -vn * .9);
+      }
+    }
+  }
+}
+
+function animateMite(dt, t) {
+  // --- mite animation: align to the surface underfoot, walk with an alternating gait, paddle when airborne
+  const grounded = bvh.closestPointToPoint(player.pos, nhit, 0, .006) && nhit.distance < .006;
+  const near01 = grounded ? THREE.MathUtils.clamp(1 - (nhit.distance - .0016) / .004, 0, 1) : 0;
+  if (grounded) { _n.subVectors(player.pos, nhit.point).normalize(); surfN.lerp(_n, Math.min(1, dt * 10)).normalize(); }
+  else surfN.lerp(_up0, Math.min(1, dt * 3)).normalize();
+  mite.position.copy(player.pos);
+  const fwd = (player.vel.lengthSq() > 1e-7 ? player.vel.clone() : dir.clone()).addScaledVector(surfN, -player.vel.dot(surfN));
+  if (fwd.lengthSq() < 1e-9) fwd.copy(dir);
+  fwd.addScaledVector(surfN, -fwd.dot(surfN)).normalize();
+  const side3 = new THREE.Vector3().crossVectors(surfN, fwd).normalize();
+  const qT = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(side3, surfN, fwd));
+  mite.quaternion.slerp(qT, Math.min(1, dt * 7));
+  miteModel.position.y = THREE.MathUtils.lerp(miteModel.position.y, -.0008 * near01, Math.min(1, dt * 8));
+  const hspeed = Math.hypot(player.vel.x, player.vel.z);
+  const walking = near01 > .3;
+  gaitPhase += dt * (walking ? 4 + hspeed * 260 : 2.2);
+  miteModel.position.y += walking ? Math.sin(gaitPhase * 2) * .00003 * Math.min(1, hspeed * 20) : 0;
+  for (const L of legs) {
+    const ph = gaitPhase + (((L.pair % 2) === (L.side > 0 ? 1 : 0)) ? Math.PI : 0);
+    let yaw = L.yaw0, tgt;
+    if (L.pair === 0) {                              // the first pair are carried high and waved like feelers
+      yaw += -L.side * Math.sin(t * 3.1 + L.side) * .18;
+      tgt = [0, .95 + Math.sin(t * 2.3 + L.side * 1.7) * .15, -.35, -.25, -.1 + Math.sin(t * 5 + L.side) * .2];
+    } else if (walking) {
+      const swing = Math.sin(ph), lift = Math.max(0, Math.cos(ph)), amp = Math.min(1, hspeed * 25 + .15);
+      yaw += -L.side * swing * .32 * amp;
+      tgt = [0, L.rest[1] + lift * .45 * amp, L.rest[2] - lift * .25 * amp, L.rest[3], L.rest[4] + lift * .2 * amp];
+    } else {                                         // airborne: legs splayed, slow paddling
+      yaw += -L.side * Math.sin(t * 2.6 + L.pair * 1.3) * .14;
+      tgt = [0, L.rest[1] + .3 + Math.sin(t * 2 + L.pair) * .12, L.rest[2] + .35, L.rest[3] + .2, L.rest[4] + .15];
+    }
+    L.joints[0].parent.rotation.y += (yaw - L.joints[0].parent.rotation.y) * Math.min(1, dt * 14);
+    for (let k = 1; k < 5; k++) { L.cur[k] += (tgt[k] - L.cur[k]) * Math.min(1, dt * 14); L.joints[k].rotation.z = L.cur[k]; }
+  }
+  for (const p of miteModel.userData.palps || []) p.rotation.z = -.25 + Math.sin(t * 4.3 + p.position.x * 99) * .12;
+  // setae trail behind on springs, from the body's motion in its own frame
+  const vLocal = player.vel.clone().applyQuaternion(mite.quaternion.clone().invert());
+  for (const S of miteSetae) {
+    const tx = THREE.MathUtils.clamp(-vLocal.y * 9 + vLocal.z * 3, -.7, .7) + Math.sin(t * 7 + S.len * 20) * .03;
+    const ty = THREE.MathUtils.clamp(vLocal.x * 9, -.7, .7);
+    S.vx += ((tx - S.ax) * S.k - S.vx * 4.5) * dt; S.vy += ((ty - S.ay) * S.k - S.vy * 4.5) * dt;
+    S.ax += S.vx * dt; S.ay += S.vy * dt;
+    S.flex.rotation.set(S.ax, S.ay, 0);
+  }
+  // contact shadow on the surface below
+  if (grounded) {
+    miteShadow.visible = true; miteShadow.position.copy(nhit.point).addScaledVector(surfN, .00012);
+    miteShadow.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), surfN);
+    miteShadow.rotateZ(Math.atan2(fwd.x, fwd.z));
+    miteShadow.material.opacity = near01;
+  } else miteShadow.visible = false;
+}
+// launch screen: the mite rests on the lounge carpet beside a meadow of pills; the camera drifts round it
+const titleShot = { spot: null, look: null, n: new THREE.Vector3(0, 1, 0) };
+function setupTitleShot() {
+  const cl = FL.clusters.find(c => /^Floor_Lounge/.test(c.O.name)) || FL.clusters[0];
+  if (!cl) return;
+  const f = cl.flowers[0];
+  titleShot.spot = f.pos.clone().addScaledVector(f.T, .011).addScaledVector(f.B, .004).addScaledVector(f.n, .0016);
+  titleShot.look = cl.center.clone();
+  titleShot.n.copy(f.n);
+  HOME.copy(titleShot.spot);
+  player.pos.copy(titleShot.spot); player.vel.set(0, 0, 0);
+  dir.subVectors(titleShot.look, titleShot.spot).setY(0).normalize();
+  head.yaw = Math.atan2(dir.x, dir.z); head.pitch = 0;
+}
+function step(dt) {
+  const t = timeU.value;
+  // --- steering: mouse / drag deltas turn the heading directly; keys turn at a fixed rate
+  const K = input.keys;
+  if (cine) { input.yawD = input.pitchD = 0; }
+  head.yaw -= input.yawD * SENS; head.pitch -= input.pitchD * SENS; input.yawD = input.pitchD = 0;
+  head.yaw += ((K.has('KeyA') || K.has('ArrowLeft') ? 1 : 0) - (K.has('KeyD') || K.has('ArrowRight') ? 1 : 0)) * 1.7 * dt;
+  head.pitch += ((K.has('ArrowUp') || K.has('KeyE') ? 1 : 0) - (K.has('ArrowDown') || K.has('KeyQ') ? 1 : 0)) * 1.2 * dt;
+  head.pitch = THREE.MathUtils.clamp(head.pitch, -1.2, 1.2);
+  dir.set(Math.sin(head.yaw) * Math.cos(head.pitch), Math.sin(head.pitch), Math.cos(head.yaw) * Math.cos(head.pitch));
+  const gusting = input.hold && !cine;
+  if (gusting && player.gust < .5) { pulseU.set(player.pos.x, player.pos.y, player.pos.z, t); whoosh(); }
+  player.gust += ((gusting ? 1 : 0) - player.gust) * Math.min(1, dt * (gusting ? 4 : 1.5));
+  const cruise = cine ? .004 : K.has('KeyW') ? .13 : K.has('KeyS') ? .01 : .05;
+  player.speed += (THREE.MathUtils.lerp(cruise, .32, player.gust) - player.speed) * Math.min(1, dt * 3);
+  flow(player.pos, t, _f);
+  if (dir.y < -.15 && _f.y > 0) _f.y *= .15;        // diving cuts through an updraught instead of being held up by it
+  const desired = dir.clone().multiplyScalar(player.speed).addScaledVector(_f, .22);
+  player.vel.lerp(desired, Math.min(1, dt * 4));
+  const R = .0016;
+  // substep so a fast gust never skips past thin geometry
+  const sub = Math.max(1, Math.ceil(player.vel.length() * dt / .003));
+  for (let i = 0; i < sub; i++) moveSwept(player.vel.clone().multiplyScalar(dt / sub), R);
+  for (let k = 0; k < 2; k++) {
+    if (!bvh.closestPointToPoint(player.pos, hit, 0, R) || hit.distance >= R) break;   // (the lookup can return points beyond the threshold)
+    _n.subVectors(player.pos, hit.point); const d = _n.length(); if (d < 1e-7) { player.pos.y += R; continue; }
+    player.pos.addScaledVector(_n.multiplyScalar(1 / d), R - d + 1e-5);
+  }
+  // inside a closed object? the first surface straight up faces up -> pop out on top
+  ray.origin.copy(player.pos); ray.direction.set(0, 1, 0);
+  const upHit = bvh.raycastFirst(ray, THREE.DoubleSide, 0, 3);
+  if (upHit && upHit.face && upHit.face.normal.y > .2) { player.pos.y = upHit.point.y + R * 2; player.vel.y = Math.max(player.vel.y, .02); }
+  player.pos.clamp(BOUNDS.min, BOUNDS.max);
+  playerU.copy(player.pos);
+  // --- the cloth: sag under the mite (damped spring), and wake whatever it brushes
+  const reach = .006 + .006 * player.gust;
+  const touching = fabricBVH.closestPointToPoint(player.pos, fhit, 0, .02) && fhit.distance < .02;
+  let target = 0; player.fabric = null; player.contact = 0;
+  if (touching) {
+    const O = triObj[Math.floor(fabricBVH.geometry.index.getX(fhit.faceIndex * 3) / 3)];
+    target = THREE.MathUtils.clamp(1 - fhit.distance / .01, 0, 1) * (.7 + .5 * player.gust);
+    dentU.set(fhit.point.x, fhit.point.y, fhit.point.z, dentU.w);
+    player.contact = THREE.MathUtils.clamp(1 - (fhit.distance - .0016) / .004, 0, 1);
+    player.fabric = player.contact > 0 ? O : null;
+    if (fhit.distance < reach) bloomAt(fhit.point, O, player.gust);
+    // wading kicks loose lint out of the pile
+    const sp = Math.hypot(player.vel.x, player.vel.z);
+    player.lintAcc = (player.lintAcc || 0) + sp * player.contact * dt * 260;
+    while (player.lintAcc > 1) {
+      player.lintAcc -= 1;
+      const side = new THREE.Vector3(-player.vel.z, 0, player.vel.x).normalize().multiplyScalar((Math.random() < .5 ? -1 : 1) * (.006 + Math.random() * .01));
+      lint(fhit.point, side.setY(.004 + Math.random() * .008).addScaledVector(player.vel, .2), O.col);
+    }
+  }
+  // hard surface underfoot? (for the leg patter)
+  player.onHard = !player.fabric && bvh.closestPointToPoint(player.pos, hit, 0, .0035) && hit.distance < .0035;
+  updateTrail(dt, player.contact);
+  player.dentV += ((target - player.dent) * 90 - player.dentV * 7) * dt;
+  player.dent += player.dentV * dt; dentU.w = player.dent;
+  animateMite(dt, t);
+  miteLight.position.copy(player.pos).y += .003;
+  miteLight.intensity = .0004 + player.gust * .0004;
+  player.history.unshift(player.pos.clone()); if (player.history.length > 700) player.history.pop();
+  // traversal particles
+  const hsp = Math.hypot(player.vel.x, player.vel.z);
+  if (player.fabric && player.contact > .3) {
+    if (player.fabric.done > 0 && Math.random() < hsp * 6) {   // glitter rising off cloth you've already woken
+      spark(new THREE.Vector3(player.pos.x + (Math.random() - .5) * .006, player.pos.y - .001, player.pos.z + (Math.random() - .5) * .006),
+        new THREE.Vector3((Math.random() - .5) * .004, .006 + Math.random() * .01, (Math.random() - .5) * .004), player.fabric.col.clone().multiplyScalar(.9), .8 + Math.random() * .8);
+    }
+    if ((player.prevContact || 0) < .2 && player.vel.y < -.01) {   // landing: a puff of lint
+      for (let k = 0; k < 18; k++) { const a = k / 18 * 6.283; lint(player.pos.clone().setY(player.pos.y - .0012), new THREE.Vector3(Math.cos(a) * .02, .006 + Math.random() * .01, Math.sin(a) * .02), player.fabric.col); }
+    }
+  }
+  if (player.onHard && hsp > .015 && Math.random() < hsp * 10)   // dust scuffed up off the wood
+    lint(player.pos.clone().addScaledVector(player.vel, -.03), new THREE.Vector3((Math.random() - .5) * .006, .002 + Math.random() * .004, (Math.random() - .5) * .006), new THREE.Color(.55, .5, .44));
+  player.prevContact = player.contact;
+  if (A.ctx && !A.muted) {
+    A.windG.gain.setTargetAtTime(.012 + player.speed * .2, A.ctx.currentTime, .2);
+    A.windF.frequency.setTargetAtTime(260 + player.speed * 2000, A.ctx.currentTime, .2);
+  }
+  updateWaypoints(dt, t);
+}
+
+const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(1, 1, 1), _p = new THREE.Vector3(), _e = new THREE.Euler();
+function updateMotes(t) {
+  if (!moteCount) return;
+  const H = player.history;
+  for (let i = 0; i < moteCount; i++) {
+    const base = H[Math.min(H.length - 1, 10 + i * 4)] || player.pos;
+    const a = t * .7 + i * 2.399, r = .0035 + .0009 * Math.sqrt(i);
+    _p.set(Math.cos(a) * r, Math.sin(a * 1.3) * r * .8, Math.sin(a) * r).add(base);
+    _q.setFromEuler(_e.set(t * 3 + i, t * 2 + i * .5, 0));
+    _s.setScalar(.7 + .3 * Math.sin(t * 5 + i));
+    motes.setMatrixAt(i, _m.compose(_p, _q, _s));
+  }
+  motes.instanceMatrix.needsUpdate = true;
+}
+
+const dustTmp = new THREE.Vector3();
+function updateAir(dt, t) {
+  const p = dust.geometry.attributes.position;
+  for (let i = 0; i < p.count; i += (MOBILE ? 2 : 1)) {
+    dustTmp.fromBufferAttribute(p, i); flow(dustTmp, t, _f);
+    dustTmp.addScaledVector(_f, dt * .25 * (MOBILE ? 2 : 1));
+    if (dustTmp.y > 2.32) dustTmp.y = .01; if (dustTmp.y < .002) dustTmp.y = .3;
+    if (dustTmp.x > BOUNDS.max.x) dustTmp.x = BOUNDS.min.x; if (dustTmp.x < BOUNDS.min.x) dustTmp.x = BOUNDS.max.x;
+    p.setXYZ(i, dustTmp.x, dustTmp.y, dustTmp.z);
+  }
+  p.needsUpdate = true;
+  const sp = sparks.geometry.attributes.position, sc = sparks.geometry.attributes.color;
+  sparkData.forEach((s, i) => {
+    if (s.life <= 0) { sp.setXYZ(i, 0, -50, 0); return; }
+    s.life -= dt; s.v.multiplyScalar(1 - dt * 1.5); s.v.y += dt * .004; s.p.addScaledVector(s.v, dt);
+    const k = Math.max(0, s.life / s.max);
+    sp.setXYZ(i, s.p.x, s.p.y, s.p.z); sc.setXYZ(i, s.c.r * k, s.c.g * k, s.c.b * k);
+  });
+  sp.needsUpdate = true; sc.needsUpdate = true;
+}
+
+// faint glints rising from nearby cloth that is still asleep, to lead the way
+let glintTimer = 0;
+function glints(dt) {
+  glintTimer -= dt; if (glintTimer > 0) return; glintTimer = .1;
+  for (let tries = 0; tries < 8; tries++) {
+    const P = fabric.patches[(Math.random() * fabric.patches.length) | 0];
+    if (P.state || P.due) continue;
+    const d = P.center.distanceTo(player.pos);
+    if (d > 1.2 || d < .03) continue;
+    spark(P.center, new THREE.Vector3(0, .004 + Math.random() * .004, 0), P.obj.col.clone().multiplyScalar(.9), 2.4);
+    break;
+  }
+}
+
+// Camera: follows a smoothed copy of the mite (so collision jitter never reaches the screen) and,
+// when its view is blocked, tries a few other angles (higher, then off to either side) before pulling in.
+const camHit = { point: new THREE.Vector3(), distance: 0 };
+const _cand = new THREE.Vector3(), _best = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
+function clearance(from, d, maxD) {
+  ray.origin.copy(from); ray.direction.copy(d);
+  const h = bvh.raycastFirst(ray, THREE.DoubleSide, 0, maxD);
+  return h ? h.distance : maxD;
+}
+function updateCamera(dt, t) {
+  if (!playing) {
+    if (titleShot.spot) {
+      // low, slow orbit framed so the mite sits right of centre with the meadow beyond it
+      const S = titleShot.spot, a = 2.2 + t * .045;
+      camGoal.set(S.x + Math.cos(a) * .026, S.y + .0075 + Math.sin(t * .23) * .0012, S.z + Math.sin(a) * .026);
+      camera.position.lerp(camGoal, Math.min(1, dt * 1.5));
+      const right = new THREE.Vector3().subVectors(S, camera.position).cross(_up0).normalize();
+      camera.lookAt(_v4.copy(S).addScaledVector(right, -.0065).addScaledVector(titleShot.n, .0012));
+      camFocus.copy(S); camDirS.subVectors(camera.position, S).normalize(); camDist = camera.position.distanceTo(S);
+      return;
+    }
+    const a = t * .07;
+    camGoal.set(1.5 + Math.cos(a) * 1.25, 1.15 + Math.sin(t * .2) * .08, -5.3 + Math.sin(a) * 1.0);
+    camera.position.lerp(camGoal, Math.min(1, dt * 2));
+    camera.lookAt(1.5, .3, -5.4);
+    return;
+  }
+  camFocus.lerp(player.pos, 1 - Math.exp(-dt * 22));
+  // the smoothed focus must stay on the mite's side of every surface (it trails in a straight line and
+  // would otherwise cut through the corner of a cushion the mite just climbed over)
+  _cand.subVectors(camFocus, player.pos); const fl = _cand.length();
+  if (fl > 1e-6) {
+    ray.origin.copy(player.pos); ray.direction.copy(_cand).multiplyScalar(1 / fl);
+    const fh = bvh.raycastFirst(ray, THREE.DoubleSide, 0, fl + .0008);
+    if (fh) camFocus.copy(player.pos).addScaledVector(ray.direction, Math.max(0, fh.distance - .0008));
+  }
+  const want = .017 + .007 * player.gust;
+  const base = dir.clone().negate(); base.y = base.y * .55 + .42; base.normalize();
+  let bestScore = -1;
+  const options = [[0, 0], [.45, 0], [.9, 0], [.45, .7], [.45, -.7], [1.2, 0], [.2, 1.4], [.2, -1.4]];
+  for (const [lift, swing] of options) {
+    _cand.copy(base); _cand.y += lift; _cand.normalize(); if (swing) _cand.applyAxisAngle(_up, swing);
+    const c = clearance(camFocus, _cand, want + .004);
+    const score = Math.min(c, want) - (lift * .002 + Math.abs(swing) * .003);
+    if (score > bestScore) { bestScore = score; _best.copy(_cand); }
+    if (c >= want && !lift && !swing) break;           // preferred view is clear: take it
+  }
+  camDirS.lerp(_best, 1 - Math.exp(-dt * 5)).normalize();
+  const allowed = Math.max(.003, clearance(camFocus, camDirS, want + .004) - .0022);
+  if (allowed < camDist) camDist = Math.max(allowed, camDist + (allowed - camDist) * (1 - Math.exp(-dt * 30)));
+  else camDist += (allowed - camDist) * (1 - Math.exp(-dt * 2.5));
+  camDist = Math.min(camDist, allowed + .0004);
+  camera.position.copy(camFocus).addScaledVector(camDirS, camDist);
+  for (let k = 0; k < 2; k++) {
+    if (!bvh.closestPointToPoint(camera.position, camHit, 0, .0012) || camHit.distance >= .0012) break;
+    _n.subVectors(camera.position, camHit.point); const d = _n.length(); if (d < 1e-7) break;
+    camera.position.addScaledVector(_n.multiplyScalar(1 / d), .0012 - d);
+  }
+  camLook.copy(camFocus).addScaledVector(dir, .005);
+  camera.lookAt(camLook);
+  if (cine && cinematicCamera(t, camera.position.clone(), camLook.clone())) return;
+  camera.fov = THREE.MathUtils.lerp(camera.fov, 72 + player.gust * 14, Math.min(1, dt * 3)); camera.updateProjectionMatrix();
+}
+
+let fpsAcc = 0, fpsN = 0;
+function adaptResolution(raw) {
+  if (document.visibilityState !== 'visible') return;
+  fpsAcc += raw; fpsN++;
+  if (fpsAcc < 1.2) return;
+  const avg = fpsAcc / fpsN; fpsAcc = fpsN = 0;
+  const next = avg > 1 / 48 ? Math.max(.6, dpr - .15) : avg < 1 / 58 ? Math.min(DPR_MAX, dpr + .1) : dpr;
+  if (next !== dpr) { dpr = next; renderer.setPixelRatio(dpr); composer.setPixelRatio(dpr); composer.setSize(innerWidth, innerHeight); }
+}
+function frame() {
+  const raw = clock.getDelta(); adaptResolution(raw);
+  const dt = Math.min(raw, 1 / 30);
+  timeU.value += dt;
+  const t = timeU.value;
+  if (bvh) {
+    if (playing) { step(dt); glints(dt); settlePatches(t); updateAudio(dt); }
+    else if (titleShot.spot) { player.pos.copy(titleShot.spot); player.vel.set(0, 0, 0); animateMite(dt, t); }
+    updateFlowers(t); updateEnv(dt, t);
+    updateLint(dt, t); if (playing) updateStreaks(dt);
+    updatePaint(t); updateMotes(t); updateAir(dt, t); updateCamera(dt, t);
+    if (captionTimer > 0) { captionTimer -= dt; if (captionTimer <= 0) $('caption').classList.remove('on'); }
+  }
+  composer.render();
+}
+camera.position.set(3.2, 1.3, -3.6);
+if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__dani = { player, head, input, camera, dir, get bvh() { return bvh; }, get playing() { return playing; }, THREE, camFocus, renderer, composer, scene, fabric,
+  tick(dt) { timeU.value += dt; const t = timeU.value; step(dt); settlePatches(t); updatePaint(t); updateMotes(t); updateAir(dt, t); updateLint(dt, t); updateStreaks(dt); updateFlowers(t); updateEnv(dt, t); updateCamera(dt, t); },
+  FL, get cine() { return cine; },
+  titleTick(dt) { timeU.value += dt; const t = timeU.value; player.pos.copy(titleShot.spot); player.vel.set(0, 0, 0); animateMite(dt, t); updatePaint(t); updateMotes(t); updateAir(dt, t); updateFlowers(t); updateEnv(dt, t); updateCamera(dt, t); },
+  get camDist() { return camDist; }, camDirS,
+  startSilent() { playing = true; started = timeU.value; goHome(); $('title').classList.add('gone'); document.body.classList.add('playing'); $('hud').classList.add('on'); } };
+</script>
+
+</body>
+</html>
