@@ -32,7 +32,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 #title > *{opacity:0;transform:translateY(12px);transition:opacity .6s cubic-bezier(.16,1,.3,1),transform .6s cubic-bezier(.16,1,.3,1)}
 body.ready #title > *{opacity:1;transform:none}
 body.ready #title > *:nth-child(2){transition-delay:.08s} body.ready #title > *:nth-child(3){transition-delay:.16s}
-#title.gone > *{opacity:0;transform:translateY(8px);transition-delay:0s!important;pointer-events:none}
+body.ready #title.gone > *,#title.gone > *{opacity:0;transform:translateY(8px);transition-delay:0s!important;pointer-events:none}
 h1{margin:0;display:grid;gap:10px}
 h1 .jp{font-family:var(--jp);font-weight:700;font-size:clamp(44px,6.4vw,84px);line-height:1.05;letter-spacing:-.02em}
 h1 .en{font-size:15px;font-weight:400;color:var(--ink-2);letter-spacing:0}
@@ -75,12 +75,38 @@ kbd{font-family:var(--mono);font-size:11px;color:var(--ink);padding:3px 7px;bord
 #caption .en{font-size:13px;color:var(--ink-2)}
 #hint{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);transform:translateX(-50%);font-size:12px;color:var(--ink-2);opacity:0;transition:opacity 1s;pointer-events:none;white-space:nowrap}
 #hint.on{opacity:.9}
+@media (pointer:coarse){.desk-only{display:none}}
 .lb{position:fixed;left:0;right:0;height:0;background:#0b0b0d;z-index:5;pointer-events:none;transition:height 1.1s cubic-bezier(.6,0,.2,1)}
 .lb.top{top:0}.lb.bot{bottom:0}
 body.cine .lb{height:11vh}
 body.cine #hud,body.cine #hint{opacity:0}
-#breeze{position:fixed;right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 28px);padding:14px 18px;border-radius:var(--r);box-shadow:inset 0 0 0 1px var(--line);background:rgba(17,17,19,.5);color:var(--ink);font-size:13px;display:none;touch-action:none}
-@media (pointer:coarse){#hud.on ~ #breeze{display:block}}
+/* touch controls: thumbstick left, 風 (breeze) and 止 (slow) right. Circles are the one shape exception: they are game controls */
+#touch{position:fixed;inset:0;pointer-events:none;display:none;z-index:3}
+@media (pointer:coarse){body.playing #touch{display:block}}
+body.cine #touch{opacity:0;transition:opacity .6s}
+#stick{position:absolute;left:calc(env(safe-area-inset-left,0px) + 26px);bottom:calc(env(safe-area-inset-bottom,0px) + 26px);width:136px;height:136px;border-radius:50%;
+  background:radial-gradient(circle,rgba(17,17,19,.18) 0%,rgba(17,17,19,.42) 100%);box-shadow:inset 0 0 0 1px rgba(236,235,231,.22);pointer-events:auto;touch-action:none}
+#stick::before{content:"";position:absolute;inset:30%;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(236,235,231,.1)}
+#knob{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:rgba(236,235,231,.2);box-shadow:inset 0 0 0 1.5px rgba(236,235,231,.5),0 2px 10px rgba(0,0,0,.25);transition:transform .18s cubic-bezier(.2,1.6,.4,1)}
+#stick.active #knob{transition:none;background:rgba(236,235,231,.3)}
+.gbtn{position:absolute;border-radius:50%;display:grid;place-items:center;align-content:center;color:var(--ink);pointer-events:auto;touch-action:none;
+  background:radial-gradient(circle at 50% 38%,rgba(40,38,36,.5),rgba(14,14,16,.55));transition:transform .08s,background .15s,box-shadow .15s}
+.gbtn span{font-family:var(--jp);font-weight:700;line-height:1}
+.gbtn small{font-size:10px;color:var(--ink-2);margin-top:4px;letter-spacing:.02em}
+#breeze{right:calc(env(safe-area-inset-right,0px) + 30px);bottom:calc(env(safe-area-inset-bottom,0px) + 40px);width:100px;height:100px;box-shadow:inset 0 0 0 2px var(--accent),0 2px 14px rgba(0,0,0,.3)}
+#breeze span{font-size:36px}
+#brake{right:calc(env(safe-area-inset-right,0px) + 146px);bottom:calc(env(safe-area-inset-bottom,0px) + 26px);width:64px;height:64px;box-shadow:inset 0 0 0 1.5px rgba(236,235,231,.4),0 2px 10px rgba(0,0,0,.3)}
+#brake span{font-size:22px}
+.gbtn.on{transform:scale(.94);background:radial-gradient(circle at 50% 40%,rgba(227,173,92,.55),rgba(227,173,92,.18))}
+#brake.on{background:radial-gradient(circle at 50% 40%,rgba(236,235,231,.35),rgba(236,235,231,.1))}
+/* short landscape screens */
+@media (max-height:500px){
+  #title{bottom:max(18px,6vh);gap:12px;width:min(380px,calc(100vw - 40px))}
+  h1 .jp{font-size:clamp(34px,8vh,48px)} h1 .en{font-size:13px} .sub{font-size:13px;line-height:1.5}
+  #keys{bottom:max(18px,6vh)}
+  #caption{bottom:calc(env(safe-area-inset-bottom,0px) + 18vh)}
+  #stick{width:118px;height:118px} #breeze{width:88px;height:88px} #brake{right:calc(env(safe-area-inset-right,0px) + 130px)}
+}
 #err{position:fixed;inset:auto 20px 20px 20px;color:#f0a39a;font-size:13px}
 @media (prefers-reduced-motion:reduce){#title > *,#hud,#caption,#keys,.scrim{transition:none!important}}
 </style>
@@ -97,8 +123,9 @@ body.cine #hud,body.cine #hint{opacity:0}
   <div class="desk"><kbd>Mouse</kbd><span>steer</span></div>
   <div class="desk"><kbd>W</kbd><kbd>S</kbd><span>pace</span></div>
   <div class="desk"><kbd>Space</kbd><span>ride the breeze</span></div>
-  <div class="touch"><kbd>Drag</kbd><span>steer</span></div>
-  <div class="touch"><kbd>Breeze</kbd><span>hold to ride the air</span></div>
+  <div class="touch"><kbd>Stick</kbd><span>steer, push further to go faster</span></div>
+  <div class="touch"><kbd>風</kbd><span>hold to ride the breeze</span></div>
+  <div class="touch"><kbd>止</kbd><span>slow down</span></div>
 </aside>
 <div id="loadline"><i id="loadbar"></i></div>
 
@@ -115,8 +142,12 @@ body.cine #hud,body.cine #hint{opacity:0}
   </div>
 </div>
 <div id="caption" aria-live="polite"><div class="jp" id="capjp"></div><div class="en" id="capen"></div></div>
-<div id="hint">Esc frees the cursor</div>
-<button id="breeze" aria-label="Ride the breeze">Breeze</button>
+<div id="hint" class="desk-only">Esc frees the cursor</div>
+<div id="touch">
+  <div id="stick" aria-label="Steer"><div id="knob"></div></div>
+  <button class="gbtn" id="brake" aria-label="Slow down"><span>止</span></button>
+  <button class="gbtn" id="breeze" aria-label="Ride the breeze"><span>風</span><small>breeze</small></button>
+</div>
 <div id="err" hidden></div>
 <div class="lb top"></div><div class="lb bot"></div>
 
@@ -144,7 +175,8 @@ const MOBILE = matchMedia('(pointer: coarse)').matches;
 // ------------------------------------------------------------------ renderer / scene
 // The mite is ~3 mm long and the camera sits ~1.5 cm behind it, so depth precision matters: log depth buffer.
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', logarithmicDepthBuffer: true });
-const DPR_MAX = Math.min(devicePixelRatio, MOBILE ? 1.25 : 1.5);
+const DPR_MAX = Math.min(devicePixelRatio, MOBILE ? 2 : 1.5);
+const DPR_MIN = Math.min(devicePixelRatio, MOBILE ? 1 : .75);
 let dpr = DPR_MAX;
 renderer.setPixelRatio(dpr);
 renderer.setSize(innerWidth, innerHeight);
@@ -502,7 +534,8 @@ function build(gltf) {
 }
 
 // ------------------------------------------------------------------ woven fabric shader
-const WEAVE_HEAD = /* glsl */`
+const WEAVE_HEAD = `#define POM_STEPS ${MOBILE ? 5 : 10}
+` + /* glsl */`
   uniform float uTime; uniform sampler2D uBloomMap; uniform vec4 uMapRect;
   uniform vec4 uDent; uniform vec4 uPulse; uniform vec3 uPlayer; uniform float uPattern; uniform float uPitch;
   uniform sampler2D uTrail; uniform vec4 uTrailRect;
@@ -570,9 +603,9 @@ const WEAVE_MAIN = /* glsl */`
     vec3 Vt = vec3(dot(V, T0), dot(V, B0), dot(V, Nw));
     vec4 w = weaveAt(p);
     if (camD < .5 && detail > .01) {
-      vec2 stepUV = -Vt.xy / max(abs(Vt.z), .22) * .6 / 10.;
+      vec2 stepUV = -Vt.xy / max(abs(Vt.z), .22) * .6 / float(POM_STEPS);
       float layer = 1.;
-      for (int i = 0; i < 10; i++) { if (w.x >= layer) break; layer -= .1; p += stepUV; w = weaveAt(p); }
+      for (int i = 0; i < POM_STEPS; i++) { if (w.x >= layer) break; layer -= 1. / float(POM_STEPS); p += stepUV; w = weaveAt(p); }
     }
     float e = .035;
     float hx = weaveAt(p + vec2(e, 0.)).x - weaveAt(p - vec2(e, 0.)).x;
@@ -1060,6 +1093,7 @@ function updateFlowers(t) {
   if (dirty) for (const m of [FL.rad, FL.tang, FL.tip, FL.core]) m.instanceMatrix.needsUpdate = true;
 }
 function openFlower(fl, t) {
+  buzz(10);
   fl.state = 1; fl.t0 = t; FL.open++;
   const tmpC = new THREE.Color();
   for (let j = 0; j < FL.NR; j++) {
@@ -1688,9 +1722,30 @@ stage.addEventListener('pointermove', e => {
 const release = () => { input.hold = false; input.dragging = false; };
 stage.addEventListener('pointerup', release); stage.addEventListener('pointercancel', release);
 document.addEventListener('pointerlockchange', () => { input.locked = document.pointerLockElement === stage; });
-const breeze = $('breeze');
-breeze.addEventListener('pointerdown', e => { e.stopPropagation(); input.hold = true; breeze.setPointerCapture?.(e.pointerId); });
-breeze.addEventListener('pointerup', () => { input.hold = false; }); breeze.addEventListener('pointercancel', () => { input.hold = false; });
+const buzz = ms => { try { navigator.vibrate?.(ms); } catch {} };
+// hold-buttons: 風 rides the breeze, 止 slows to a hover
+function holdButton(el, on, off) {
+  el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); try { el.setPointerCapture?.(e.pointerId); } catch {} el.classList.add('on'); on(); });
+  const up = () => { el.classList.remove('on'); off(); };
+  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
+  el.addEventListener('contextmenu', e => e.preventDefault());
+}
+holdButton($('breeze'), () => { input.hold = true; buzz(15); }, () => { input.hold = false; });
+holdButton($('brake'), () => { input.brake = true; buzz(8); }, () => { input.brake = false; });
+// thumbstick: direction steers, distance from centre sets speed
+const stick = $('stick'), knob = $('knob');
+input.stickX = 0; input.stickY = 0; input.stickId = null;
+function stickMove(e) {
+  const r = stick.getBoundingClientRect(), R = r.width * .38;
+  let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+  const m = Math.hypot(dx, dy); if (m > R) { dx *= R / m; dy *= R / m; }
+  knob.style.transform = `translate(${dx}px, ${dy}px)`;
+  input.stickX = dx / R; input.stickY = dy / R;
+}
+stick.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); input.stickId = e.pointerId; try { stick.setPointerCapture?.(e.pointerId); } catch {} stick.classList.add('active'); stickMove(e); });
+stick.addEventListener('pointermove', e => { if (e.pointerId === input.stickId) stickMove(e); });
+const stickUp = e => { if (e.pointerId !== input.stickId) return; input.stickId = null; input.stickX = input.stickY = 0; knob.style.transform = ''; stick.classList.remove('active'); };
+stick.addEventListener('pointerup', stickUp); stick.addEventListener('pointercancel', stickUp); stick.addEventListener('lostpointercapture', stickUp);
 addEventListener('keydown', e => {
   if (e.code === 'Space') { input.hold = true; e.preventDefault(); }
   else if (e.code === 'KeyM') toggleMute();
@@ -1724,13 +1779,20 @@ const hit = { point: new THREE.Vector3(), distance: 0 }, fhit = { point: new THR
 const ray = new THREE.Ray();
 const _n = new THREE.Vector3(), _rem = new THREE.Vector3(), _up0 = new THREE.Vector3(0, 1, 0);
 
-$('begin').addEventListener('click', () => {
-  initAudio(); playing = true; started = timeU.value; goHome();
+function startGame() {
+  if (playing) return;
+  playing = true; started = timeU.value; goHome();
+  try { initAudio(); A.ctx?.resume?.(); } catch (e) { console.warn('audio unavailable', e); }
+  if (MOBILE) { try { document.documentElement.requestFullscreen?.({ navigationUI: 'hide' })?.catch?.(() => {}); } catch {} }
   if (!MOBILE && stage.requestPointerLock) { try { const p = stage.requestPointerLock(); p?.catch?.(() => {}); } catch {} }
   $('title').classList.add('gone'); document.body.classList.add('playing'); $('hud').classList.add('on'); $('hint').classList.add('on');
   setTimeout(() => $('hint').classList.remove('on'), 7000);
-  note(0, 'glass', .7); note(7, 'glass', .6, 0, .12); note(14, 'celesta', .5, 0, .24);
-});
+  try { note(0, 'glass', .7); note(7, 'glass', .6, 0, .12); note(14, 'celesta', .5, 0, .24); } catch {}
+}
+$('begin').addEventListener('click', startGame);
+$('begin').addEventListener('touchend', e => { if (!$('begin').disabled) { e.preventDefault(); startGame(); } }, { passive: false });
+// iOS keeps audio suspended until a touch: wake it on the first one in game
+addEventListener('pointerdown', () => { try { if (A.ctx && A.ctx.state !== 'running') A.ctx.resume(); } catch {} }, { passive: true });
 
 // a touch wakes a circle of cloth; the wave front spreads out and plays a little run of notes as it goes
 function bloomAt(p, O, gust) {
@@ -1872,6 +1934,9 @@ function step(dt) {
   // --- steering: mouse / drag deltas turn the heading directly; keys turn at a fixed rate
   const K = input.keys;
   if (cine) { input.yawD = input.pitchD = 0; }
+  // thumbstick: turn and climb/dive at a rate set by how far it is pushed (with a soft centre)
+  const sx = input.stickX || 0, sy = input.stickY || 0, smag = Math.min(1, Math.hypot(sx, sy));
+  if (smag > .08 && !cine) { const c = v => Math.sign(v) * Math.pow(Math.abs(v), 1.4); head.yaw -= c(sx) * 2.2 * dt; head.pitch -= c(sy) * 1.5 * dt; }
   head.yaw -= input.yawD * SENS; head.pitch -= input.pitchD * SENS; input.yawD = input.pitchD = 0;
   head.yaw += ((K.has('KeyA') || K.has('ArrowLeft') ? 1 : 0) - (K.has('KeyD') || K.has('ArrowRight') ? 1 : 0)) * 1.7 * dt;
   head.pitch += ((K.has('ArrowUp') || K.has('KeyE') ? 1 : 0) - (K.has('ArrowDown') || K.has('KeyQ') ? 1 : 0)) * 1.2 * dt;
@@ -1880,7 +1945,7 @@ function step(dt) {
   const gusting = input.hold && !cine;
   if (gusting && player.gust < .5) { pulseU.set(player.pos.x, player.pos.y, player.pos.z, t); whoosh(); }
   player.gust += ((gusting ? 1 : 0) - player.gust) * Math.min(1, dt * (gusting ? 4 : 1.5));
-  const cruise = cine ? .004 : K.has('KeyW') ? .13 : K.has('KeyS') ? .01 : .05;
+  const cruise = cine ? .004 : (K.has('KeyS') || input.brake) ? .01 : K.has('KeyW') ? .13 : THREE.MathUtils.lerp(.05, .13, Math.max(0, smag - .15) / .85);
   player.speed += (THREE.MathUtils.lerp(cruise, .32, player.gust) - player.speed) * Math.min(1, dt * 3);
   flow(player.pos, t, _f);
   if (dir.y < -.15 && _f.y > 0) _f.y *= .15;        // diving cuts through an updraught instead of being held up by it
@@ -2071,7 +2136,7 @@ function adaptResolution(raw) {
   fpsAcc += raw; fpsN++;
   if (fpsAcc < 1.2) return;
   const avg = fpsAcc / fpsN; fpsAcc = fpsN = 0;
-  const next = avg > 1 / 48 ? Math.max(.6, dpr - .15) : avg < 1 / 58 ? Math.min(DPR_MAX, dpr + .1) : dpr;
+  const next = avg > 1 / 45 ? Math.max(DPR_MIN, dpr - .15) : avg < 1 / 57 ? Math.min(DPR_MAX, dpr + .1) : dpr;
   if (next !== dpr) { dpr = next; renderer.setPixelRatio(dpr); composer.setPixelRatio(dpr); composer.setSize(innerWidth, innerHeight); }
 }
 function frame() {
